@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+*.env
+backend/.env
+frontend/.env
+*.env.local
+*.env.*.local
+
+# Production Build
+dist/
+**/dist/
+dist-ssr/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Temporary test files
+test_sample.pdf
+sample_textbook_chapter.pdf

@@ -1,0 +1,22 @@
+{
+  "name": "ai-quiz-builder-backend",
+  "version": "1.0.0",
+  "description": "Real-time multiplayer AI Quiz backend with Socket.io, Express, MongoDB and Gemini AI",
+  "main": "src/server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "mongoose": "^8.12.1",
+    "multer": "^2.4.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-parse": "^1.1.1",
+    "socket.io": "^4.8.1"
+  }
+}

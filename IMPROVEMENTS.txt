@@ -1,0 +1,156 @@
+================================================================================
+QUIZVERSE AI — PROJECT CHANGELOG & IMPROVEMENT TRACKER
+================================================================================
+
+This document tracks all features, architectural milestones, design refactors,
+bug fixes, and system improvements implemented across the development of QuizVerse AI.
+
+--------------------------------------------------------------------------------
+PROJECT OVERVIEW
+--------------------------------------------------------------------------------
+- Stack: MERN (MongoDB, Express, React, Node.js), Socket.io, Tailwind CSS v4, Google Gemini AI
+- Architecture: Authoritative server-side game loop, real-time WebSockets,
+  rate-limited AI synthesis, resilient in-memory caching with MongoDB persistence.
+
+================================================================================
+CHRONOLOGICAL CHANGELOG & IMPROVEMENTS
+================================================================================
+
+--------------------------------------------------------------------------------
+PHASE 1: CORE MULTIPLAYER AI ARCHITECTURE
+--------------------------------------------------------------------------------
+* Real-Time WebSocket Engine (quizSocket.js):
+  - Implemented authoritative room management (activeRooms runtime Map) with 6-character room codes.
+  - Built RoomTimerManager using authoritative setInterval round clocks, preventing client-side clock tampering.
+  - Implemented core socket events: create_room, join_room, start_quiz, submit_answer, reconnect_player, disconnect.
+
+* AI Question Synthesis Engine (aiService.js):
+  - Integrated Google Gemini 1.5 Flash via @google/generative-ai with structured JSON schema output (question, options, correctIndex, explanation).
+  - Anti-Screen Peeking System: Concurrently generates distinct, non-overlapping question angles and variations for each player in the room with randomized option orders.
+  - Resilient Dynamic Fallback Generator: Built an offline fallback generator providing valid questions when the Gemini API key is missing or rate-limited.
+
+* Database & Persistence (models/):
+  - MongoDB Mongoose schemas for Room and QuizSession.
+  - Added resilient offline mode: if MongoDB connection fails, game operates seamlessly in-memory without crashing.
+
+* Web Audio Synthesizer (soundEffects.js):
+  - Handcrafted Web Audio API sound synthesizer (countdown ticks, start horn, correct chime, wrong buzzer, victory fanfare) without external audio files.
+
+--------------------------------------------------------------------------------
+PHASE 2: MINIMALIST AESTHETIC OVERHAUL
+--------------------------------------------------------------------------------
+* Design Philosophy:
+  - Deprecated bright neon and generic colors in favor of a subtle, architectural dark palette (zinc-950, zinc-900, zinc-800, zinc-100).
+
+* Design System Tokens (index.css):
+  - Custom classes .minimal-panel, .minimal-card, .minimal-card-hover, .subtle-focus.
+  - Smooth micro-interactions and @keyframes fadeIn animations.
+  - Typography styled with Outfit (headings), Inter (body), and Space Grotesk (mono metrics).
+
+* Audio Controls & API Key Management:
+  - Added persistent mute toggle with local storage memory.
+  - Added ApiKeyModal.jsx allowing users to inject personal Gemini API keys stored safely in browser localStorage.
+
+--------------------------------------------------------------------------------
+PHASE 3: REVEAL & TRANSITION PHASE (ANSWER FEEDBACK)
+--------------------------------------------------------------------------------
+* Authoritative Server-Side Orchestration (quizSocket.js):
+  - Intercepted immediate question transitions when the timer expires or all players submit.
+  - Broadcasts answer_reveal event and triggers an authoritative 5-second countdown timer (transition_tick).
+  - Automatically advances to next_question or game_over when the 5-second transition concludes.
+
+* Frontend State Machine (App.jsx):
+  - Introduced explicit roundStatus states: "WAITING_FOR_PLAYERS", "ACTIVE_QUESTION", and "REVEAL_ANSWER".
+  - Added countdown pill displaying remaining transition seconds ("Next question in Xs...").
+
+* Visual Option Highlighting (QuizArena.jsx):
+  - Selected Incorrect Choice: Highlighted in subtle red (bg-red-500/20 border-red-500/60 text-red-200).
+  - Correct Choice: Highlighted in subtle emerald green (bg-emerald-500/20 border-emerald-500/60 text-emerald-200) with checkmark.
+  - Unselected Options: Faded to 40% opacity and disabled to maintain focus on review.
+  - Zero Layout Shift: Maintained identical card heights and layouts between active and reveal phases to eliminate visual jumping.
+
+--------------------------------------------------------------------------------
+PHASE 4: EDUCATIONAL CREATOR PORTAL (PDF-TO-QUIZ ENGINE)
+--------------------------------------------------------------------------------
+* Frontend Creator Dashboard (CreatorPortal.jsx):
+  - Drag-and-Drop PDF Upload Zone: Accepts .pdf files up to 25MB with drag-over visual feedback and file validation.
+  - Document Analysis State: Displays an animated "Analyzing Document..." state while the backend extracts text and chapters.
+  - Document Inspection: Displays parsed page count, character count, and an expandable text preview snippet.
+  - Dynamic Topic-Wise Split (Crucial Feature):
+    * Input rows allowing creators to specify exact question quotas per chapter/topic (e.g. 5 questions on Thermodynamics, 3 questions on Fluid Dynamics, 2 questions on Entropy).
+    * Pre-populates with chapter titles automatically detected by suggestTopicsFromPDF.
+    * "+ Add Topic Row" and remove controls.
+    * "Auto-Distribute" button to balance question counts across all topics.
+    * Live Allocation Tally Badge (Allocated: X / Total) ensuring exact alignment.
+  - Seamless navigation integrated into Navbar.jsx and LobbyCreation.jsx.
+
+* Backend PDF Processing (server.js):
+  - Configured multer for memory storage and integrated pdf-parse@1.1.1 to extract raw text and page counts.
+  - Added POST /api/parse-pdf: Parses PDF buffer, extracts text, and detects prospective topics.
+  - Added POST /api/generate-from-pdf: Receives text + configuration payload, invokes AI generator, saves to MongoDB QuizSession, preloads room into memory, and returns room code.
+
+* AI Prompt Engineering (aiService.js):
+  - Implemented strict educational assessor prompt template:
+    "You are an expert educational assessor. I will provide you with the text of a book chapter and a strict configuration for generating a multiple-choice quiz. You MUST generate exactly the number of questions requested for each specific topic. Do not pull outside knowledge; base all answers solely on the provided text. Output strictly in the defined JSON format."
+  - Payload structure enforcing topic quotas:
+    Source Material: [clippedText]
+    Total Questions: [count]
+    Difficulty Level: [difficulty]
+    Topic Distribution:
+    - [Topic 1]: [N] questions
+    - [Topic 2]: [N] questions
+  - Added intelligent paragraph-extraction fallback for PDF text if Gemini API is offline.
+
+* Preloaded Room Flow to Lobby (quizSocket.js):
+  - Added createPreloadedRoom and claim_preloaded_host socket events.
+  - Persists curriculum questions into MongoDB QuizSession.preloadedQuestions.
+  - Transitions creator directly to WaitingLobby awaiting players.
+  - When host clicks "Start Quiz", the server detects preloaded questions, skips real-time AI generation delay, and starts the synchronized game countdown immediately.
+
+--------------------------------------------------------------------------------
+PHASE 5: DEV SERVER PROXY & JSON PARSING RESILIENCE
+--------------------------------------------------------------------------------
+* Vite Proxy Configuration (vite.config.js):
+  - Configured proxy for /api pointing from port 5173 to backend port 5000, eliminating CORS issues and proxy dropouts.
+
+* Safe Text-to-JSON Parsing (CreatorPortal.jsx):
+  - Added BACKEND_URL fallback (http://localhost:5000).
+  - Replaced direct response.json() calls with guarded response.text() + try/catch JSON parsing, preventing "Unexpected end of JSON input" errors and providing human-readable status feedback.
+
+* Sanitized AI Output (aiService.js):
+  - Stripped markdown code fences (```json) prior to JSON.parse on Gemini responses.
+
+================================================================================
+SUMMARY OF IMPLEMENTED COMPONENTS & SERVICES
+================================================================================
+
+- frontend/src/components/CreatorPortal.jsx:
+  PDF upload zone, document analysis state, topic-wise split inputs, quiz synthesis
+- frontend/src/components/QuizArena.jsx:
+  Question card, options grid, speed timer, reveal state styling, live standings
+- frontend/src/components/WaitingLobby.jsx:
+  Connected player roster, ready indicators, room code copy, host start controls
+- frontend/src/components/LobbyCreation.jsx:
+  Host lobby configuration, code join input, navigation callout to Creator Portal
+- frontend/src/components/Navbar.jsx:
+  Global header, connection indicator, sound toggle, API key modal, portal switcher
+- frontend/src/components/FinalLeaderboard.jsx:
+  Victory podium (1st, 2nd, 3rd), final scores, question review breakdown
+- backend/src/server.js:
+  Express server, Socket.io initialization, Multer PDF parsing and generation routes
+- backend/src/socket/quizSocket.js:
+  Authoritative room management, timer manager, preloaded room handling, answer scoring
+- backend/src/services/aiService.js:
+  Gemini API integration, educational assessor prompt, PDF fallback generator
+- backend/src/models/QuizSession.js:
+  MongoDB schema storing completed player breakdowns and preloaded PDF curriculum questions
+- backend/src/models/Room.js:
+  MongoDB schema storing room state, settings, and player rosters
+
+================================================================================
+PLANNED ENHANCEMENTS & ROADMAP
+================================================================================
+[ ] PDF & Anki Export: Export generated quizzes and question review breakdowns as printable PDFs or Anki flashcard decks.
+[ ] Question Bank Library: Save custom PDF-generated quizzes for reuse across multiple sessions.
+[ ] Team / Battle Royale Mode: Group participants into teams or enable knockout elimination after each round.
+[ ] Text-to-Speech (TTS): Audio narration for question prompts and explanations.
