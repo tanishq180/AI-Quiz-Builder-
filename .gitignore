@@ -36,3 +36,7 @@ Thumbs.db
 # Temporary test files
 test_sample.pdf
 sample_textbook_chapter.pdf
+
+# Local documentation
+CODEBASE_DOCUMENTATION.*
+

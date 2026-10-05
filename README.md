@@ -93,6 +93,8 @@ CLIENT_URL=http://localhost:5173
 | `round_question`| Server ➔ Client | `{ questionIndex, totalQuestions, timeLimit, question, options, id }` |
 | `submit_answer` | Client ➔ Server | `{ roomCode, questionIndex, answerIndex }` |
 | `answer_result` | Server ➔ Client | `{ isCorrect, correctIndex, pointsEarned, totalScore, explanation }` |
-| `round_ended` | Server ➔ Client | `{ questionIndex, totalQuestions, leaderboard }` |
+| `answer_reveal` | Server ➔ Client | `{ questionIndex, correctIndex, explanation, pointsEarned, transitionDuration }` |
+| `next_question_trigger` | Client ➔ Server | `{ roomCode }` (Manually reveals/advances to next question via button) |
+| `next_question` | Server ➔ Client | `{ nextQuestionIndex, totalQuestions }` |
 | `game_over` | Server ➔ Client | `{ roomCode, topic, leaderboard, podium, playerBreakdowns }` |
 | `play_again` | Client ➔ Server | `{ roomCode }` |

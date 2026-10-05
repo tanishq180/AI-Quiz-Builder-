@@ -315,6 +315,11 @@ export default function App() {
     });
   };
 
+  const handleNextQuestion = () => {
+    if (!roomData) return;
+    socket.emit('next_question_trigger', { roomCode: roomData.roomCode });
+  };
+
   const handlePlayAgain = () => {
     if (!roomData) return;
     socket.emit('play_again', { roomCode: roomData.roomCode });
@@ -400,6 +405,8 @@ export default function App() {
             leaderboard={liveLeaderboard}
             currentSocketId={currentSocketId}
             serverAuthoritativeTime={serverAuthoritativeTime}
+            isHost={roomData?.hostSocketId === currentSocketId}
+            onNextQuestion={handleNextQuestion}
           />
         )}
 

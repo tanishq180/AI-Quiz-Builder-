@@ -12,6 +12,7 @@ const activeRooms = new Map();
 class RoomTimerManager {
   constructor() {
     this.intervals = new Map(); // roomCode -> NodeJS.Timeout
+    this.transitionIntervals = new Map(); // roomCode -> NodeJS.Timeout
   }
 
   startRoundTimer(roomCode, totalSeconds, onTick, onExpire) {
@@ -35,6 +36,30 @@ class RoomTimerManager {
     if (this.intervals.has(roomCode)) {
       clearInterval(this.intervals.get(roomCode));
       this.intervals.delete(roomCode);
+    }
+  }
+
+  startTransitionTimer(roomCode, totalSeconds, onTick, onExpire) {
+    this.clearTransitionTimer(roomCode);
+
+    let remaining = totalSeconds;
+    const intervalId = setInterval(() => {
+      remaining -= 1;
+      if (remaining > 0) {
+        onTick(remaining);
+      } else {
+        this.clearTransitionTimer(roomCode);
+        onExpire();
+      }
+    }, 1000);
+
+    this.transitionIntervals.set(roomCode, intervalId);
+  }
+
+  clearTransitionTimer(roomCode) {
+    if (this.transitionIntervals.has(roomCode)) {
+      clearInterval(this.transitionIntervals.get(roomCode));
+      this.transitionIntervals.delete(roomCode);
     }
   }
 }
@@ -544,6 +569,16 @@ export function setupQuizSocket(io) {
       }
     });
 
+    // 6b. Reveal / Trigger Next Question Manually (via Button)
+    socket.on('next_question_trigger', ({ roomCode }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game || game.status !== 'IN_PROGRESS') return;
+
+      console.log(`[Next Question Button] Room ${code} triggered by ${socket.id}`);
+      advanceToNextRound(io, code);
+    });
+
     // 7. Play Again (Host resets lobby)
     socket.on('play_again', ({ roomCode }) => {
       const code = sanitizeInput(roomCode, 6).toUpperCase();
@@ -551,6 +586,7 @@ export function setupQuizSocket(io) {
       if (!game || game.hostSocketId !== socket.id) return;
 
       timerManager.clearTimer(code);
+      timerManager.clearTransitionTimer(code);
       game.status = 'LOBBY';
       game.currentQuestionIndex = 0;
       game.submissionsCurrentRound.clear();
@@ -700,8 +736,8 @@ function triggerAnswerReveal(io, roomCode) {
     }
   });
 
-  const transitionDuration = 5; // 5-second reveal and transition phase
-  console.log(`[Answer Reveal] Room ${roomCode} Round ${qIndex + 1} - 5s transition countdown active`);
+  const transitionDuration = 15; // 15-second reveal window (can be advanced early via Next Question button)
+  console.log(`[Answer Reveal] Room ${roomCode} Round ${qIndex + 1} - ${transitionDuration}s transition timer active (or click Next Question)`);
 
   // Broadcast tailored answer_reveal event to each player
   game.players.forEach(player => {
@@ -738,32 +774,45 @@ function triggerAnswerReveal(io, roomCode) {
     transitionDuration
   });
 
-  // Start authoritative 5-second transition timer
-  let transitionRemaining = transitionDuration;
-  const transitionInterval = setInterval(() => {
-    transitionRemaining -= 1;
-    if (transitionRemaining > 0) {
+  // Start authoritative transition timer (automatically expires after transitionDuration or early via button)
+  timerManager.startTransitionTimer(
+    roomCode,
+    transitionDuration,
+    (remainingSeconds) => {
       io.to(roomCode).emit('transition_tick', {
-        secondsRemaining: transitionRemaining,
+        secondsRemaining: remainingSeconds,
         questionIndex: qIndex
       });
-    } else {
-      clearInterval(transitionInterval);
-
-      // Once 5-second timer concludes:
-      const nextIndex = qIndex + 1;
-      if (nextIndex < game.settings.questionCount) {
-        console.log(`[Next Question] Room ${roomCode} advancing to Round ${nextIndex + 1}`);
-        io.to(roomCode).emit('next_question', {
-          nextQuestionIndex: nextIndex,
-          totalQuestions: game.settings.questionCount
-        });
-        startSynchronizedRound(io, roomCode, nextIndex);
-      } else {
-        finalizeGame(io, roomCode);
-      }
+    },
+    () => {
+      advanceToNextRound(io, roomCode);
     }
-  }, 1000);
+  );
+}
+
+/**
+ * Advance to next round or finalize game (triggered either by timer or Next Question button)
+ */
+function advanceToNextRound(io, roomCode) {
+  const game = activeRooms.get(roomCode);
+  if (!game || game.status !== 'IN_PROGRESS') return;
+
+  timerManager.clearTransitionTimer(roomCode);
+  timerManager.clearTimer(roomCode);
+
+  const qIndex = game.currentQuestionIndex;
+  const nextIndex = qIndex + 1;
+
+  if (nextIndex < game.settings.questionCount) {
+    console.log(`[Next Question] Room ${roomCode} advancing to Round ${nextIndex + 1}`);
+    io.to(roomCode).emit('next_question', {
+      nextQuestionIndex: nextIndex,
+      totalQuestions: game.settings.questionCount
+    });
+    startSynchronizedRound(io, roomCode, nextIndex);
+  } else {
+    finalizeGame(io, roomCode);
+  }
 }
 
 /**
@@ -774,6 +823,7 @@ async function finalizeGame(io, roomCode) {
   if (!game) return;
 
   timerManager.clearTimer(roomCode);
+  timerManager.clearTransitionTimer(roomCode);
   game.status = 'FINISHED';
 
   const leaderboard = getLeaderboard(game.players);

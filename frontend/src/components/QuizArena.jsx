@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Check, X, Award, AlertCircle, Compass, Loader2 } from 'lucide-react';
+import { Clock, Check, X, Award, AlertCircle, Compass, Loader2, ArrowRight } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
@@ -12,7 +12,9 @@ export default function QuizArena({
   onSubmitAnswer,
   leaderboard,
   currentSocketId,
-  serverAuthoritativeTime
+  serverAuthoritativeTime,
+  isHost = false,
+  onNextQuestion
 }) {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
@@ -21,6 +23,7 @@ export default function QuizArena({
   const isRevealPhase = roundStatus === 'REVEAL_ANSWER';
   const totalTime = questionData.timeLimit || 15;
   const progressRatio = Math.max(0, timeRemaining / totalTime);
+  const isLastQuestion = (questionData.questionIndex + 1) >= questionData.totalQuestions;
 
   // Authoritative server timer synchronization during ACTIVE_QUESTION
   useEffect(() => {
@@ -154,9 +157,23 @@ export default function QuizArena({
               </span>
             </>
           ) : (
-            <div className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 bg-zinc-900 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-400" />
-              <span>Next in {currentTransitionSec}s</span>
+            <div className="flex items-center gap-2">
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-zinc-400 bg-zinc-900 px-2.5 py-1.5 rounded-lg border border-zinc-800">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-500" />
+                <span>Auto in {currentTransitionSec}s</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playPop();
+                  if (onNextQuestion) onNextQuestion();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs transition shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                title={isLastQuestion ? "Show Final Leaderboard" : "Advance to Next Question"}
+              >
+                <span>{isLastQuestion ? 'Results' : 'Next'}</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </div>
@@ -298,6 +315,33 @@ export default function QuizArena({
                   <strong className="text-zinc-300">Explanation:</strong> {answerRevealData.explanation}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Action button to reveal next question */}
+          {isRevealPhase && (
+            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/70 backdrop-blur-sm flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+              <div className="text-xs text-zinc-400 flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span>
+                  {isLastQuestion
+                    ? 'Final round concluded. Ready for match results!'
+                    : `Round ${questionData.questionIndex + 1} of ${questionData.totalQuestions} complete. Auto-advancing in ${currentTransitionSec}s.`
+                  }
+                </span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  sounds.playPop();
+                  if (onNextQuestion) onNextQuestion();
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
+              >
+                <span>{isLastQuestion ? 'Reveal Final Leaderboard' : 'Reveal Next Question'}</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
           )}
 
