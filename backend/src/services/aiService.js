@@ -202,7 +202,10 @@ export async function generateQuizFromPDFText({
   totalQuestions = 5,
   topicDistribution = [],
   difficulty = 'Medium',
-  customApiKey = null
+  customApiKey = null,
+  playerIndex = 0,
+  playerSeed = 'player-1',
+  subFocus = ''
 }) {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   const count = Math.min(Math.max(Number(totalQuestions) || 5, 1), 20);
@@ -217,7 +220,7 @@ export async function generateQuizFromPDFText({
     distributionText = `- Comprehensive Content: ${count} questions`;
   }
 
-  // Truncate PDF text if overly long (keep first ~30,000 characters)
+  // Truncate PDF text if overly long (keep first ~32,000 characters)
   const clippedText = (pdfText || '').slice(0, 32000);
 
   if (apiKey && apiKey.trim() !== '') {
@@ -227,7 +230,7 @@ export async function generateQuizFromPDFText({
         model: 'gemini-1.5-flash',
         generationConfig: {
           responseMimeType: 'application/json',
-          temperature: 0.6,
+          temperature: 0.75,
         },
         systemInstruction: "You are an expert educational assessor. I will provide you with the text of a book chapter and a strict configuration for generating a multiple-choice quiz.\n\nYou MUST generate exactly the number of questions requested for each specific topic. Do not pull outside knowledge; base all answers solely on the provided text. Output strictly in the defined JSON format."
       });
@@ -239,6 +242,12 @@ Total Questions: ${count}
 Difficulty Level: ${difficulty}
 Topic Distribution:
 ${distributionText}
+
+MANDATORY DIVERSITY & ANTI-CHEAT DIRECTIVE:
+Player Track: ${playerIndex + 1}
+Seed: ${playerSeed}
+${subFocus ? `Perspective Focus: ${subFocus}` : 'Focus on distinct nuances, practical mechanics, and application edge-cases.'}
+Ensure the question phrasing and tested concepts are completely unique to this player track so that no two players sitting next to each other receive the same questions.
 
 Generate the quiz following the standard schema (question, 4 options, correctIndex, explanation).
 Ensure every question maps strictly to the requested topics in the distribution.
@@ -256,6 +265,7 @@ Return ONLY a valid JSON object matching this schema:
   ]
 }`;
 
+      const result = await model.generateContent(userPrompt);
       const responseText = result.response.text();
       const cleaned = (responseText || '')
         .replace(/^```json\s*/i, '')
@@ -274,33 +284,67 @@ Return ONLY a valid JSON object matching this schema:
           if (isNaN(cIdx) || cIdx < 0 || cIdx > 3) cIdx = 0;
 
           return {
-            id: `pdf-q-${idx}-${Date.now()}`,
+            id: `pdf-q-p${playerIndex}-${idx}-${Date.now()}`,
             question: String(q.question || `Question ${idx + 1}`),
             options: opts,
             correctIndex: cIdx,
             explanation: String(q.explanation || 'Verified directly from the provided source material.'),
-            subFocus: q.topic || 'Document Material'
+            subFocus: q.topic || subFocus || 'Document Material'
           };
         });
 
         if (validated.length >= 1) {
-          console.log(`[AI] Successfully generated ${validated.length} PDF-based questions conforming to topic split.`);
+          console.log(`[AI] Successfully generated ${validated.length} PDF-based questions for Player ${playerIndex + 1}.`);
           return validated;
         }
       }
     } catch (err) {
-      console.warn(`[AI PDF Error] Gemini call failed: ${err.message}. Generating dynamic PDF fallback.`);
+      console.warn(`[AI PDF Error] Gemini call failed for Player ${playerIndex + 1}: ${err.message}. Generating dynamic PDF fallback.`);
     }
   }
 
-  // Dynamic fallback generator from the PDF text sentences
-  return generatePDFDynamicFallback(clippedText, count, topicDistribution, difficulty);
+  // Dynamic fallback generator from the PDF text sentences with player-specific rotation
+  return generatePDFDynamicFallback(clippedText, count, topicDistribution, difficulty, playerIndex);
 }
 
 /**
- * Intelligent topic-aware fallback extractor from the PDF content
+ * Generate distinct, personalized PDF quizzes for all players in the room
  */
-function generatePDFDynamicFallback(text, totalCount, distribution, difficulty) {
+export async function generatePersonalizedPDFQuizzes({
+  pdfText,
+  totalQuestions = 5,
+  topicDistribution = [],
+  difficulty = 'Medium',
+  playerCount = 1,
+  customApiKey = null,
+  roomCode = 'ROOM'
+}) {
+  const sanitizedPlayerCount = Math.max(1, Number(playerCount) || 1);
+  const playerIndices = Array.from({ length: sanitizedPlayerCount }, (_, i) => i);
+
+  console.log(`[AI PDF] Synthesizing distinct PDF curriculum tracks for ${sanitizedPlayerCount} players...`);
+
+  return mapWithRateLimit(playerIndices, 2, async (playerIdx) => {
+    const subFocusTemplate = SUB_FOCUS_TEMPLATES[playerIdx % SUB_FOCUS_TEMPLATES.length];
+    const uniqueAngle = subFocusTemplate(topicDistribution[0]?.topic || 'this chapter');
+
+    return generateQuizFromPDFText({
+      pdfText,
+      totalQuestions,
+      topicDistribution,
+      difficulty,
+      customApiKey,
+      playerIndex: playerIdx,
+      playerSeed: `${roomCode}-pdf-p${playerIdx}-${Date.now()}`,
+      subFocus: uniqueAngle
+    });
+  }, 200);
+}
+
+/**
+ * Intelligent topic-aware fallback extractor from the PDF content with player-specific offset and option rotation
+ */
+function generatePDFDynamicFallback(text, totalCount, distribution, difficulty, playerIndex = 0) {
   const paragraphs = text
     .split(/\n\s*\n/)
     .map(p => p.replace(/\s+/g, ' ').trim())
@@ -311,24 +355,40 @@ function generatePDFDynamicFallback(text, totalCount, distribution, difficulty) 
     ? distribution
     : [{ topic: 'Document Concepts', questionCount: totalCount }];
 
-  let pIndex = 0;
+  let pIndex = playerIndex;
   for (const item of topicsList) {
     const qForThisTopic = Math.max(1, Number(item.questionCount) || 1);
     for (let k = 0; k < qForThisTopic && questions.length < totalCount; k++) {
-      const excerpt = paragraphs[pIndex % Math.max(1, paragraphs.length)] || `Key factual assertion regarding ${item.topic}.`;
-      pIndex++;
+      const excerpt = paragraphs[(pIndex + k * 3) % Math.max(1, paragraphs.length)] || `Key factual assertion regarding ${item.topic}.`;
+      pIndex += 2;
 
-      // Create a question from this excerpt
+      // Deterministic option permutation to avoid identical layout between players
+      const rawOptions = [
+        excerpt.length > 120 ? excerpt.slice(0, 110) + '...' : excerpt,
+        `The text refutes this assertion and concludes the opposite outcome.`,
+        `This concept is stated to be universally deprecated in modern systems.`,
+        `The document notes that no empirical evidence exists for this principle.`
+      ];
+
+      const shift = (playerIndex + k + 1) % 4;
+      const rotated = [...rawOptions.slice(shift), ...rawOptions.slice(0, shift)];
+      const newCorrectIndex = rotated.indexOf(rawOptions[0]);
+
+      const questionTemplates = [
+        (topic) => `Under "${topic}", which core assertion is directly validated by the source text?`,
+        (topic) => `Regarding "${topic}", what key operational principle does the document establish?`,
+        (topic) => `In the analysis of "${topic}", which specific factual finding does the author substantiate?`,
+        (topic) => `How does the text explicitly characterize the foundational mechanics of "${topic}"?`,
+        (topic) => `Which technical conclusion regarding "${topic}" is affirmed in the chapter?`
+      ];
+
+      const templateFn = questionTemplates[(playerIndex + k) % questionTemplates.length];
+
       const qObj = {
-        id: `pdf-fallback-${questions.length + 1}-${Date.now()}`,
-        question: `According to the document section on ${item.topic}, which statement is explicitly supported by the text?`,
-        options: [
-          excerpt.length > 120 ? excerpt.slice(0, 110) + '...' : excerpt,
-          `The text refutes this assertion and concludes the opposite outcome.`,
-          `This concept is stated to be universally deprecated in modern systems.`,
-          `The document notes that no empirical evidence exists for this principle.`
-        ],
-        correctIndex: 0,
+        id: `pdf-fallback-p${playerIndex}-${questions.length + 1}-${Date.now()}`,
+        question: templateFn(item.topic),
+        options: rotated,
+        correctIndex: newCorrectIndex,
         explanation: `As detailed directly in the source text under ${item.topic}: "${excerpt.slice(0, 100)}..."`,
         subFocus: item.topic
       };

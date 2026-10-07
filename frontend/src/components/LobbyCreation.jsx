@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, ArrowRight, User, Hash, Sliders, Layers, Clock, Gauge, BookOpen } from 'lucide-react';
+import { ArrowRight, User, Hash, Layers, Clock, BookOpen } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 const POPULAR_TOPICS = [

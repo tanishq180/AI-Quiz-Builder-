@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, Check, X, Award, AlertCircle, Compass, Loader2, ArrowRight } from 'lucide-react';
+import { Check, X, Award, AlertCircle, Compass, Loader2, ArrowRight } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
@@ -13,7 +13,6 @@ export default function QuizArena({
   leaderboard,
   currentSocketId,
   serverAuthoritativeTime,
-  isHost = false,
   onNextQuestion
 }) {
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -60,6 +59,26 @@ export default function QuizArena({
     setHasSubmitted(true);
     onSubmitAnswer(questionData.questionIndex, idx);
   };
+
+  // Keyboard shortcut listener (A, B, C, D or 1, 2, 3, 4) for rapid response & speed bonus
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (isRevealPhase || hasSubmitted || timeRemaining <= 0) return;
+      const key = e.key.toUpperCase();
+      let index = -1;
+      if (key === 'A' || key === '1') index = 0;
+      else if (key === 'B' || key === '2') index = 1;
+      else if (key === 'C' || key === '3') index = 2;
+      else if (key === 'D' || key === '4') index = 3;
+
+      if (index >= 0 && index < (questionData.options?.length || 4)) {
+        handleSelectOption(index);
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isRevealPhase, hasSubmitted, timeRemaining, questionData.options]);
 
   // Sound triggers on answer reveal
   useEffect(() => {

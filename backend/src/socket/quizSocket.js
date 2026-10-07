@@ -1,6 +1,6 @@
 import { Room } from '../models/Room.js';
 import { QuizSession } from '../models/QuizSession.js';
-import { generatePersonalizedQuizzes } from '../services/aiService.js';
+import { generatePersonalizedQuizzes, generatePersonalizedPDFQuizzes } from '../services/aiService.js';
 import { getDBStatus } from '../config/db.js';
 
 // In-memory runtime state for low-latency authoritative synchronization
@@ -93,7 +93,10 @@ export function createPreloadedRoom({
   timePerQuestion,
   questions,
   avatarSeed,
-  hostSocketId = null
+  hostSocketId = null,
+  pdfText = '',
+  topicDistribution = [],
+  customApiKey = null
 }) {
   const cleanHostName = sanitizeInput(hostName, 24) || 'Host';
   const cleanTopic = sanitizeInput(topic, 100) || 'Custom Curriculum';
@@ -124,7 +127,10 @@ export function createPreloadedRoom({
       }
     ],
     isPreloaded: true,
-    preloadedQuestions: questions
+    preloadedQuestions: questions,
+    pdfText: pdfText || '',
+    topicDistribution: topicDistribution || [],
+    customApiKey: customApiKey || null
   };
 
   const runtimeGame = {
@@ -386,36 +392,95 @@ export function setupQuizSocket(io) {
       }
 
       // If room was created with preloaded curriculum questions (e.g. from Creator Portal PDF)
-      // bypass the standard real-time AI generation step!
-      if (game.isPreloaded && game.preloadedQuestions && game.preloadedQuestions.length > 0) {
-        console.log(`[Preloaded Game Start] Room ${code} - Skipping AI generation step, deploying ${game.preloadedQuestions.length} preloaded PDF curriculum questions`);
+      if (game.isPreloaded) {
+        console.log(`[Preloaded Game Start] Room ${code} - Synthesizing distinct PDF curriculum questions for ${game.players.length} players...`);
 
-        // Assign preloaded questions to all joined players
-        game.players.forEach((player) => {
-          const playerQuestionsCopy = game.preloadedQuestions.map((q, idx) => ({
-            ...q,
-            id: `${q.id || 'pdf-q'}-${player.socketId}-${idx}`
-          }));
-          game.playerQuestions.set(player.socketId, playerQuestionsCopy);
-          game.playerAnswers.set(player.socketId, []);
+        game.status = 'GENERATING';
+        io.to(code).emit('quiz_generating', {
+          message: `Synthesizing personalized curriculum questions on "${game.topic}" for each player...`,
+          playerCount: game.players.length
         });
 
-        // Broadcast synchronized 3-second countdown immediately
-        game.status = 'IN_PROGRESS';
-        let countdown = 3;
-        io.to(code).emit('countdown_start', { count: countdown });
-
-        const countdownInterval = setInterval(() => {
-          countdown -= 1;
-          if (countdown > 0) {
-            io.to(code).emit('countdown_tick', { count: countdown });
+        try {
+          let playerQuizzes;
+          if (game.pdfText && game.pdfText.trim().length > 0) {
+            playerQuizzes = await generatePersonalizedPDFQuizzes({
+              pdfText: game.pdfText,
+              totalQuestions: game.settings.questionCount,
+              topicDistribution: game.topicDistribution || [],
+              difficulty: game.settings.difficulty,
+              playerCount: game.players.length,
+              customApiKey: game.customApiKey,
+              roomCode: code
+            });
           } else {
-            clearInterval(countdownInterval);
-            io.to(code).emit('countdown_end');
-            startSynchronizedRound(io, code, 0);
+            // Guarantee distinct tracks per player by shuffling options and permuting question keys
+            playerQuizzes = game.players.map((player, pIdx) => {
+              return (game.preloadedQuestions || []).map((q, qIdx) => {
+                const shift = (pIdx + qIdx) % 4;
+                const rotated = [...q.options.slice(shift), ...q.options.slice(0, shift)];
+                const correctOptionText = q.options[q.correctIndex];
+                const newCorrectIdx = rotated.indexOf(correctOptionText);
+
+                return {
+                  ...q,
+                  id: `${q.id || 'pdf-q'}-p${pIdx}-${qIdx}`,
+                  options: rotated,
+                  correctIndex: newCorrectIdx,
+                  subFocus: q.subFocus || `Topic Focus (Track ${pIdx + 1})`
+                };
+              });
+            });
           }
-        }, 1000);
-        return;
+
+          game.players.forEach((player, idx) => {
+            const questions = playerQuizzes[idx] || [];
+            game.playerQuestions.set(player.socketId, questions);
+            game.playerAnswers.set(player.socketId, []);
+          });
+
+          console.log(`[PDF Quizzes Ready] Unique curriculum question streams deployed for all ${game.players.length} players in ${code}`);
+
+          // Broadcast synchronized 3-second countdown
+          game.status = 'IN_PROGRESS';
+          let countdown = 3;
+          io.to(code).emit('countdown_start', { count: countdown });
+
+          const countdownInterval = setInterval(() => {
+            countdown -= 1;
+            if (countdown > 0) {
+              io.to(code).emit('countdown_tick', { count: countdown });
+            } else {
+              clearInterval(countdownInterval);
+              io.to(code).emit('countdown_end');
+              startSynchronizedRound(io, code, 0);
+            }
+          }, 1000);
+          return;
+        } catch (preloadErr) {
+          console.error('Error generating personalized PDF questions:', preloadErr);
+          // Resilient fallback: assign questions with rotated options so players never have identical screens
+          game.players.forEach((player, pIdx) => {
+            const playerQuestionsCopy = (game.preloadedQuestions || []).map((q, qIdx) => {
+              const shift = (pIdx + qIdx) % 4;
+              const rotated = [...q.options.slice(shift), ...q.options.slice(0, shift)];
+              const correctOptionText = q.options[q.correctIndex];
+              const newCorrectIdx = rotated.indexOf(correctOptionText);
+
+              return {
+                ...q,
+                id: `${q.id || 'pdf-q'}-${player.socketId}-${qIdx}`,
+                options: rotated,
+                correctIndex: newCorrectIdx
+              };
+            });
+            game.playerQuestions.set(player.socketId, playerQuestionsCopy);
+            game.playerAnswers.set(player.socketId, []);
+          });
+          game.status = 'IN_PROGRESS';
+          startSynchronizedRound(io, code, 0);
+          return;
+        }
       }
 
       console.log(`[Game Start] Room ${code} - Synthesizing distinct AI quizzes for ${game.players.length} players...`);

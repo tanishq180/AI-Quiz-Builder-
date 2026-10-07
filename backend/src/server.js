@@ -67,6 +67,54 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+async function extractTextFromPdfBuffer(buffer) {
+  try {
+    const data = await pdfParse(buffer);
+    const text = (data.text || '').replace(/\r\n/g, '\n').trim();
+    if (text.length >= 20) {
+      return { text, pageCount: data.numpages || 1 };
+    }
+  } catch (err) {
+    console.warn('[PDF Primary Parser Warning]:', err.message);
+  }
+
+  // Resilient text stream extractor fallback for uncompressed or non-standard PDF streams
+  try {
+    const rawString = buffer.toString('binary');
+    const textMatches = [];
+    const tjRegex = /\(([^)]+)\)\s*Tj/g;
+    let match;
+    while ((match = tjRegex.exec(rawString)) !== null) {
+      const unescaped = match[1]
+        .replace(/\\([()\\])/g, '$1')
+        .replace(/\\n/g, '\n')
+        .trim();
+      if (unescaped) textMatches.push(unescaped);
+    }
+
+    const arrayTjRegex = /\[(.*?)\]\s*TJ/g;
+    while ((match = arrayTjRegex.exec(rawString)) !== null) {
+      const inner = match[1];
+      const partRegex = /\(([^)]+)\)/g;
+      let part;
+      let line = '';
+      while ((part = partRegex.exec(inner)) !== null) {
+        line += part[1];
+      }
+      if (line.trim()) textMatches.push(line.trim());
+    }
+
+    if (textMatches.length > 0) {
+      const combined = textMatches.join('\n').trim();
+      return { text: combined, pageCount: 1 };
+    }
+  } catch (fallbackErr) {
+    console.warn('[PDF Fallback Parser Warning]:', fallbackErr.message);
+  }
+
+  return { text: '', pageCount: 1 };
+}
+
 // 1. PDF Parsing Endpoint: Extracts raw text and detects prospective topics
 app.post('/api/parse-pdf', upload.single('pdf'), async (req, res) => {
   try {
@@ -74,9 +122,7 @@ app.post('/api/parse-pdf', upload.single('pdf'), async (req, res) => {
       return res.status(400).json({ success: false, message: 'No PDF file uploaded.' });
     }
 
-    const data = await pdfParse(req.file.buffer);
-    const rawText = data.text || '';
-    const cleanText = rawText.replace(/\r\n/g, '\n').trim();
+    const { text: cleanText, pageCount } = await extractTextFromPdfBuffer(req.file.buffer);
 
     if (!cleanText || cleanText.length < 20) {
       return res.status(400).json({
@@ -88,12 +134,12 @@ app.post('/api/parse-pdf', upload.single('pdf'), async (req, res) => {
     const suggestedTopics = suggestTopicsFromPDF(cleanText);
     const previewSnippet = cleanText.slice(0, 1200);
 
-    console.log(`[PDF Parsed] "${req.file.originalname}" (${data.numpages} pages, ${cleanText.length} chars)`);
+    console.log(`[PDF Parsed] "${req.file.originalname}" (${pageCount} pages, ${cleanText.length} chars)`);
 
     res.json({
       success: true,
       filename: req.file.originalname,
-      pageCount: data.numpages || 1,
+      pageCount,
       totalCharacters: cleanText.length,
       extractedText: cleanText,
       suggestedTopics,
@@ -114,10 +160,10 @@ app.post('/api/generate-from-pdf', upload.single('pdf'), async (req, res) => {
 
     // If PDF file was passed directly in multipart form
     if (req.file && req.file.buffer) {
-      const data = await pdfParse(req.file.buffer);
-      pdfText = data.text || '';
+      const extracted = await extractTextFromPdfBuffer(req.file.buffer);
+      pdfText = extracted.text || '';
       filename = req.file.originalname;
-      pageCount = data.numpages || 1;
+      pageCount = extracted.pageCount || 1;
     }
 
     if (!pdfText || pdfText.trim().length === 0) {
@@ -171,7 +217,10 @@ app.post('/api/generate-from-pdf', upload.single('pdf'), async (req, res) => {
       timePerQuestion,
       questions,
       avatarSeed,
-      hostSocketId
+      hostSocketId,
+      pdfText,
+      topicDistribution,
+      customApiKey
     });
 
     // Save to MongoDB QuizSession schema associated with the creator's new Room Code

@@ -5,11 +5,8 @@ import {
   Layers, 
   Plus, 
   Trash2, 
-  Sliders, 
-  CheckCircle2, 
   AlertCircle, 
   Loader2, 
-  Clock, 
   Sparkles, 
   ChevronDown, 
   ChevronUp, 
@@ -116,7 +113,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
       let data;
       try {
         data = rawText ? JSON.parse(rawText) : {};
-      } catch (jsonErr) {
+      } catch {
         throw new Error(`Server returned unexpected response (status ${response.status}). Ensure backend is running.`);
       }
 
@@ -264,7 +261,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
       let result;
       try {
         result = rawResult ? JSON.parse(rawResult) : {};
-      } catch (jsonErr) {
+      } catch {
         throw new Error(`Server returned unexpected response (status ${response.status}). Ensure backend is running.`);
       }
 

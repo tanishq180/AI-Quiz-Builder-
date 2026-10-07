@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, Play, Shield, Users, Clock, HelpCircle, Gauge } from 'lucide-react';
+import { Copy, Check, Play, Shield, Users, Clock, HelpCircle } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 export default function WaitingLobby({

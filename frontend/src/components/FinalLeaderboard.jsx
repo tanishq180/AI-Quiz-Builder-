@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
-import { Trophy, RotateCcw, Home, X, Check, BookOpen, Clock } from 'lucide-react';
+import { RotateCcw, Home, X, Check, BookOpen, Clock, Target, Zap, Award } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 export default function FinalLeaderboard({
@@ -47,8 +47,34 @@ export default function FinalLeaderboard({
   const second = podium?.second;
   const third = podium?.third;
 
+  // Personal metrics calculations for the current local player
+  const myPlayerAnswers = playerBreakdowns?.[currentSocketId] || [];
+  const myPlayerInfo = leaderboard?.find(p => p.socketId === currentSocketId);
+  const myRank = leaderboard && currentSocketId 
+    ? leaderboard.findIndex(p => p.socketId === currentSocketId) + 1 
+    : 0;
+
+  const totalQuestions = myPlayerAnswers.length || 0;
+  const correctCount = myPlayerAnswers.filter(a => a.userAnswer === a.correctIndex).length;
+  const accuracyPct = totalQuestions > 0 ? Math.round((correctCount / totalQuestions) * 100) : 0;
+
+  const timesSpent = myPlayerAnswers.map(a => Number(a.timeSpent) || 0).filter(t => t > 0);
+  const avgSpeed = timesSpent.length > 0 
+    ? (timesSpent.reduce((a, b) => a + b, 0) / timesSpent.length).toFixed(1) 
+    : '0.0';
+  const fastestSpeed = timesSpent.length > 0 
+    ? Math.min(...timesSpent).toFixed(1) 
+    : '0.0';
+
   const targetPlayerAnswers = reviewModalPlayer ? playerBreakdowns?.[reviewModalPlayer] || [] : [];
   const targetPlayerInfo = reviewModalPlayer ? leaderboard?.find(p => p.socketId === reviewModalPlayer) : null;
+  const targetTotalQ = targetPlayerAnswers.length || 0;
+  const targetCorrect = targetPlayerAnswers.filter(a => a.userAnswer === a.correctIndex).length;
+  const targetAcc = targetTotalQ > 0 ? Math.round((targetCorrect / targetTotalQ) * 100) : 0;
+  const targetTimes = targetPlayerAnswers.map(a => Number(a.timeSpent) || 0).filter(t => t > 0);
+  const targetAvgSpeed = targetTimes.length > 0 
+    ? (targetTimes.reduce((a, b) => a + b, 0) / targetTimes.length).toFixed(1) 
+    : '0.0';
 
   return (
     <div className="w-full max-w-3xl mx-auto px-4 py-8 sm:py-10 animate-fade-in relative">
@@ -67,7 +93,7 @@ export default function FinalLeaderboard({
       </div>
 
       {/* Minimalist Architectural Podium (2 - 1 - 3) */}
-      <div className="flex items-end justify-center gap-3 sm:gap-4 mb-10 pt-4">
+      <div className="flex items-end justify-center gap-3 sm:gap-4 mb-8 pt-4">
         
         {/* 2nd Place */}
         {second ? (
@@ -117,6 +143,88 @@ export default function FinalLeaderboard({
           </div>
         ) : <div className="w-24 sm:w-28" />}
 
+      </div>
+
+      {/* Individual Performance Breakdown Card */}
+      <div className="minimal-panel rounded-2xl p-5 sm:p-6 mb-8 border border-zinc-800">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 mb-4 border-b border-zinc-800 gap-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">{myPlayerInfo?.avatarSeed || '⚡'}</span>
+            <div>
+              <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-300">
+                Your Performance Breakdown
+              </h3>
+              <p className="text-[11px] text-zinc-500">
+                Individual performance statistics & response telemetry
+              </p>
+            </div>
+          </div>
+          {myRank > 0 && (
+            <span className="self-start sm:self-auto px-2.5 py-1 rounded-lg text-xs font-mono bg-zinc-800 text-zinc-200 border border-zinc-700">
+              Rank #{myRank} of {leaderboard.length}
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Total Points */}
+          <div className="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80">
+            <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] mb-1">
+              <Award className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Total Points</span>
+            </div>
+            <div className="text-lg sm:text-xl font-bold font-mono text-zinc-100">
+              {myPlayerInfo?.score || 0}
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono">Final score</span>
+          </div>
+
+          {/* Accuracy */}
+          <div className="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80">
+            <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] mb-1">
+              <Target className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Accuracy</span>
+            </div>
+            <div className="text-lg sm:text-xl font-bold font-mono text-zinc-100">
+              {accuracyPct}%
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono">{correctCount}/{totalQuestions} correct</span>
+          </div>
+
+          {/* Speed Metrics */}
+          <div className="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80">
+            <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] mb-1">
+              <Clock className="w-3.5 h-3.5 text-zinc-400" />
+              <span>Avg Speed</span>
+            </div>
+            <div className="text-lg sm:text-xl font-bold font-mono text-zinc-100">
+              {avgSpeed}s
+            </div>
+            <span className="text-[10px] text-zinc-500 font-mono">Fastest: {fastestSpeed}s</span>
+          </div>
+
+          {/* Streak & Review Shortcut */}
+          <div className="p-3 rounded-xl bg-zinc-900/70 border border-zinc-800/80 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center gap-1.5 text-zinc-400 text-[11px] mb-1">
+                <Zap className="w-3.5 h-3.5 text-zinc-400" />
+                <span>Streak</span>
+              </div>
+              <div className="text-lg sm:text-xl font-bold font-mono text-zinc-100">
+                {myPlayerInfo?.streak || 0}x
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                sounds.playPop();
+                setReviewModalPlayer(currentSocketId);
+              }}
+              className="mt-1 text-[11px] text-zinc-300 hover:text-white flex items-center gap-1 font-medium underline underline-offset-2 transition cursor-pointer"
+            >
+              <span>Inspect Answers</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Ranked Standings List */}
@@ -216,11 +324,15 @@ export default function FinalLeaderboard({
                 <span className="text-xl">{targetPlayerInfo?.avatarSeed || '⚡'}</span>
                 <div>
                   <h3 className="text-sm font-semibold text-zinc-100">
-                    {targetPlayerInfo?.username} — Review
+                    {targetPlayerInfo?.username} — Performance Review
                   </h3>
-                  <p className="text-[11px] text-zinc-400">
-                    Total: {targetPlayerInfo?.score || 0} pts
-                  </p>
+                  <div className="flex items-center gap-2 text-[11px] font-mono text-zinc-400 mt-0.5">
+                    <span className="text-zinc-200 font-semibold">{targetPlayerInfo?.score || 0} pts</span>
+                    <span>•</span>
+                    <span>{targetAcc}% Acc ({targetCorrect}/{targetTotalQ})</span>
+                    <span>•</span>
+                    <span>Avg: {targetAvgSpeed}s</span>
+                  </div>
                 </div>
               </div>
 
