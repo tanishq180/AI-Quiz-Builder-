@@ -285,11 +285,12 @@ export default function App() {
     sessionStorage.setItem('quiz_room_code', roomCode);
     sessionStorage.setItem('quiz_username', hostName || 'Host');
 
-    // Claim host socket connection
+    // Claim host socket connection with verified/edited questions
     socket.emit('claim_preloaded_host', {
       roomCode,
       username: hostName,
-      avatarSeed
+      avatarSeed,
+      questions
     });
 
     setRoomData(room);

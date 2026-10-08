@@ -11,6 +11,9 @@ import {
   ChevronDown, 
   ChevronUp, 
   ArrowRight,
+  ArrowLeft,
+  CheckCircle2,
+  Check,
   BookOpen,
   RefreshCw,
   X
@@ -27,7 +30,7 @@ const DIFFICULTIES = [
 ];
 
 export default function CreatorPortal({ onQuizCreated, customApiKey, currentSocketId, onCancel }) {
-  // Step state: 'UPLOAD' | 'ANALYZING' | 'CONFIG' | 'GENERATING'
+  // Step state: 'UPLOAD' | 'ANALYZING' | 'CONFIG' | 'GENERATING' | 'REVIEW'
   const [step, setStep] = useState('UPLOAD');
   
   // File state
@@ -49,6 +52,10 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
   // Topic-wise Split: Array of { id, topic, questionCount }
   const [topicDistribution, setTopicDistribution] = useState([]);
+
+  // Generated Questions Review State (Pre-Game Question Review & Edit)
+  const [generatedQuestions, setGeneratedQuestions] = useState([]);
+  const [pendingRoomInfo, setPendingRoomInfo] = useState(null);
 
   // Calculate total allocated questions
   const totalAllocated = topicDistribution.reduce((sum, item) => sum + (Number(item.questionCount) || 0), 0);
@@ -269,24 +276,75 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
         throw new Error(result.message || `Failed to synthesize quiz questions from PDF (status ${response.status}).`);
       }
 
-      console.log(`[Creator Portal] Quiz ready! Room Code: ${result.roomCode}`);
+      console.log(`[Creator Portal] Quiz synthesized! Entering Review step for Room: ${result.roomCode}`);
+      setGeneratedQuestions(result.questions || []);
+      setPendingRoomInfo({
+        roomCode: result.roomCode,
+        room: result.room,
+        hostName: hostName.trim(),
+        avatarSeed: selectedAvatar
+      });
+      setStep('REVIEW');
       sounds.playCountdownEnd();
-
-      // Hand off to parent to transition into standard Host Lobby
-      if (onQuizCreated) {
-        onQuizCreated({
-          roomCode: result.roomCode,
-          room: result.room,
-          questions: result.questions,
-          hostName: hostName.trim(),
-          avatarSeed: selectedAvatar
-        });
-      }
 
     } catch (err) {
       console.error('Quiz Generation Error:', err);
       setErrorMsg(err.message || 'Encountered an issue during question generation. Please verify your PDF content.');
       setStep('CONFIG');
+    }
+  };
+
+  // Question Review & Customization Handlers
+  const handleEditQuestionText = (index, newText) => {
+    setGeneratedQuestions(prev => prev.map((q, idx) => idx === index ? { ...q, question: newText } : q));
+  };
+
+  const handleEditOption = (qIndex, optIndex, newOptText) => {
+    setGeneratedQuestions(prev => prev.map((q, idx) => {
+      if (idx !== qIndex) return q;
+      const updatedOpts = [...q.options];
+      updatedOpts[optIndex] = newOptText;
+      return { ...q, options: updatedOpts };
+    }));
+  };
+
+  const handleSetCorrectIndex = (qIndex, optIndex) => {
+    sounds.playPop();
+    setGeneratedQuestions(prev => prev.map((q, idx) => idx === qIndex ? { ...q, correctIndex: optIndex } : q));
+  };
+
+  const handleEditExplanation = (index, newExplanation) => {
+    setGeneratedQuestions(prev => prev.map((q, idx) => idx === index ? { ...q, explanation: newExplanation } : q));
+  };
+
+  const handleDeleteQuestion = (index) => {
+    if (generatedQuestions.length <= 1) return;
+    sounds.playPop();
+    setGeneratedQuestions(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleAddCustomQuestion = () => {
+    sounds.playPop();
+    setGeneratedQuestions(prev => [
+      ...prev,
+      {
+        id: `custom-q-${Date.now()}`,
+        question: 'New Question Prompt',
+        options: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+        correctIndex: 0,
+        explanation: 'Verified factual explanation.',
+        subFocus: 'Custom Question'
+      }
+    ]);
+  };
+
+  const handleConfirmDeployLobby = () => {
+    sounds.playCountdownEnd();
+    if (onQuizCreated && pendingRoomInfo) {
+      onQuizCreated({
+        ...pendingRoomInfo,
+        questions: generatedQuestions
+      });
     }
   };
 
@@ -721,6 +779,180 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* STEP 5: PRE-GAME QUESTION REVIEW & CUSTOMIZATION */}
+      {step === 'REVIEW' && (
+        <div className="space-y-6 animate-fade-in">
+          
+          {/* Review Action Header */}
+          <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-1 rounded bg-zinc-800 text-zinc-300">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                </span>
+                <h2 className="text-sm sm:text-base font-semibold text-zinc-100">
+                  Review & Customize Questions
+                </h2>
+                <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  {generatedQuestions.length} Questions
+                </span>
+              </div>
+              <p className="text-xs text-zinc-400 mt-1">
+                Fine-tune wording, switch correct answers, or add custom questions before launching the arena.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => { sounds.playPop(); setStep('CONFIG'); }}
+                className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition flex items-center gap-1.5"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Config</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmDeployLobby}
+                className="text-xs sm:text-sm font-medium text-zinc-950 bg-zinc-100 hover:bg-zinc-200 px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-sm"
+              >
+                <span>Deploy Lobby</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+
+          {/* Question List */}
+          <div className="space-y-4">
+            {generatedQuestions.map((q, qIdx) => (
+              <div 
+                key={q.id || `review-q-${qIdx}`}
+                className="minimal-panel rounded-xl p-4 sm:p-5 border border-zinc-800/90 space-y-3"
+              >
+                {/* Question Header & Subfocus */}
+                <div className="flex items-center justify-between gap-2 border-b border-zinc-800/60 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                      Q{qIdx + 1}
+                    </span>
+                    {q.subFocus && (
+                      <span className="text-[11px] text-zinc-400 truncate max-w-[240px] sm:max-w-sm">
+                        {q.subFocus}
+                      </span>
+                    )}
+                  </div>
+
+                  {generatedQuestions.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteQuestion(qIdx)}
+                      className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition"
+                      title="Delete this question"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Question Textarea */}
+                <div>
+                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Question Prompt
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={q.question}
+                    onChange={(e) => handleEditQuestionText(qIdx, e.target.value)}
+                    className="w-full text-xs sm:text-sm text-zinc-100 bg-zinc-900/80 border border-zinc-800 rounded-lg p-2.5 focus:outline-none focus:border-zinc-600 transition resize-none"
+                    placeholder="Enter question text..."
+                  />
+                </div>
+
+                {/* 4 Options Grid */}
+                <div className="space-y-2">
+                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
+                    Options (Click circle to select the verified correct answer)
+                  </label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {q.options.map((opt, optIdx) => {
+                      const isCorrect = q.correctIndex === optIdx;
+                      return (
+                        <div 
+                          key={optIdx}
+                          className={`flex items-center gap-2 p-2 rounded-lg border transition ${
+                            isCorrect 
+                              ? 'bg-emerald-950/20 border-emerald-500/50' 
+                              : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSetCorrectIndex(qIdx, optIdx)}
+                            className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center border transition ${
+                              isCorrect
+                                ? 'bg-emerald-500 border-emerald-400 text-zinc-950'
+                                : 'border-zinc-700 hover:border-zinc-500 text-transparent'
+                            }`}
+                            title={isCorrect ? 'Correct Answer' : 'Click to make correct answer'}
+                          >
+                            <Check className="w-3 h-3 stroke-[3]" />
+                          </button>
+
+                          <input
+                            type="text"
+                            value={opt}
+                            onChange={(e) => handleEditOption(qIdx, optIdx, e.target.value)}
+                            className="flex-1 bg-transparent text-xs text-zinc-200 focus:outline-none focus:text-zinc-100"
+                            placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Explanation */}
+                <div>
+                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                    Explanation (Post-Round Reveal)
+                  </label>
+                  <input
+                    type="text"
+                    value={q.explanation || ''}
+                    onChange={(e) => handleEditExplanation(qIdx, e.target.value)}
+                    className="w-full text-xs text-zinc-300 bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-zinc-600 transition"
+                    placeholder="Brief explanation for players..."
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Footer Controls */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleAddCustomQuestion}
+              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition flex items-center justify-center gap-1.5"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Custom Question</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleConfirmDeployLobby}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-zinc-100 text-zinc-950 font-medium text-xs sm:text-sm hover:bg-zinc-200 transition flex items-center justify-center gap-2 shadow-sm"
+            >
+              <span>Confirm & Launch Arena ({generatedQuestions.length} Questions)</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+
         </div>
       )}
 

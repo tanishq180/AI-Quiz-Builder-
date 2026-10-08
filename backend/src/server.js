@@ -4,6 +4,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
+import rateLimit from 'express-rate-limit';
 import { createRequire } from 'module';
 import { connectDB, getDBStatus } from './config/db.js';
 import { setupQuizSocket, createPreloadedRoom, generateRoomCode, getActiveRoom } from './socket/quizSocket.js';
@@ -21,6 +22,13 @@ const server = http.createServer(app);
 
 const PORT = process.env.PORT || 5000;
 const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
+const isProduction = process.env.NODE_ENV === 'production';
+
+const allowedOrigins = [
+  clientUrl,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+];
 
 // Configure Multer for in-memory PDF uploads (max 25MB)
 const upload = multer({
@@ -35,19 +43,44 @@ const upload = multer({
   }
 });
 
-// Middleware
+// Production-aware CORS Middleware
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    if (!origin || !isProduction || allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error(`CORS origin ${origin} not permitted.`));
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true
 }));
+
 app.use(express.json({ limit: '30mb' }));
 app.use(express.urlencoded({ extended: true, limit: '30mb' }));
+
+// Rate Limiters for Security & Quota Protection
+const generalApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // Max 200 requests per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests from this IP, please try again after 15 minutes.' }
+});
+
+const pdfGenerateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // Max 20 PDF synthesis calls per 15 min per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Rate limit exceeded: Max 20 document parses / AI quiz generations per 15 minutes. Please try again later.' }
+});
+
+app.use('/api', generalApiLimiter);
 
 // Initialize Socket.io
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: isProduction ? allowedOrigins : '*',
     methods: ['GET', 'POST'],
     credentials: true
   },
@@ -116,7 +149,7 @@ async function extractTextFromPdfBuffer(buffer) {
 }
 
 // 1. PDF Parsing Endpoint: Extracts raw text and detects prospective topics
-app.post('/api/parse-pdf', upload.single('pdf'), async (req, res) => {
+app.post('/api/parse-pdf', pdfGenerateLimiter, upload.single('pdf'), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ success: false, message: 'No PDF file uploaded.' });
@@ -152,7 +185,7 @@ app.post('/api/parse-pdf', upload.single('pdf'), async (req, res) => {
 });
 
 // 2. Generate Structured Quiz from PDF text strictly enforcing topic-wise split
-app.post('/api/generate-from-pdf', upload.single('pdf'), async (req, res) => {
+app.post('/api/generate-from-pdf', pdfGenerateLimiter, upload.single('pdf'), async (req, res) => {
   try {
     let pdfText = req.body.pdfText;
     let filename = req.body.filename || 'Educational Material';

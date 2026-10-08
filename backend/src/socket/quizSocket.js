@@ -13,14 +13,20 @@ class RoomTimerManager {
   constructor() {
     this.intervals = new Map(); // roomCode -> NodeJS.Timeout
     this.transitionIntervals = new Map(); // roomCode -> NodeJS.Timeout
+    this.pausedTimers = new Map(); // roomCode -> { remaining, onTick, onExpire }
   }
 
   startRoundTimer(roomCode, totalSeconds, onTick, onExpire) {
     this.clearTimer(roomCode);
+    this.pausedTimers.delete(roomCode);
 
     let remaining = totalSeconds;
     const intervalId = setInterval(() => {
       remaining -= 1;
+      const pausedState = this.pausedTimers.get(roomCode);
+      if (pausedState) {
+        pausedState.remaining = remaining;
+      }
       if (remaining > 0) {
         onTick(remaining);
       } else {
@@ -30,6 +36,30 @@ class RoomTimerManager {
     }, 1000);
 
     this.intervals.set(roomCode, intervalId);
+    this.pausedTimers.set(roomCode, { remaining: totalSeconds, onTick, onExpire });
+  }
+
+  pauseRoundTimer(roomCode) {
+    if (this.intervals.has(roomCode) && this.pausedTimers.has(roomCode)) {
+      clearInterval(this.intervals.get(roomCode));
+      this.intervals.delete(roomCode);
+      const state = this.pausedTimers.get(roomCode);
+      return state ? state.remaining : 0;
+    }
+    return null;
+  }
+
+  resumeRoundTimer(roomCode) {
+    const state = this.pausedTimers.get(roomCode);
+    if (state && !this.intervals.has(roomCode)) {
+      this.startRoundTimer(roomCode, state.remaining, state.onTick, state.onExpire);
+      return state.remaining;
+    }
+    return null;
+  }
+
+  isPaused(roomCode) {
+    return this.pausedTimers.has(roomCode) && !this.intervals.has(roomCode);
   }
 
   clearTimer(roomCode) {
@@ -37,6 +67,7 @@ class RoomTimerManager {
       clearInterval(this.intervals.get(roomCode));
       this.intervals.delete(roomCode);
     }
+    this.pausedTimers.delete(roomCode);
   }
 
   startTransitionTimer(roomCode, totalSeconds, onTick, onExpire) {
@@ -61,6 +92,11 @@ class RoomTimerManager {
       clearInterval(this.transitionIntervals.get(roomCode));
       this.transitionIntervals.delete(roomCode);
     }
+  }
+
+  clearAllRoomTimers(roomCode) {
+    this.clearTimer(roomCode);
+    this.clearTransitionTimer(roomCode);
   }
 }
 
@@ -139,7 +175,11 @@ export function createPreloadedRoom({
     roundStartTime: null,
     playerQuestions: new Map(),
     playerAnswers: new Map(),
-    submissionsCurrentRound: new Set()
+    submissionsCurrentRound: new Set(),
+    createdAt: Date.now(),
+    lastActivity: Date.now(),
+    completedAt: null,
+    allDisconnectedAt: null
   };
 
   activeRooms.set(roomCode, runtimeGame);
@@ -150,14 +190,52 @@ export function getActiveRoom(roomCode) {
   return activeRooms.get(roomCode);
 }
 
+// Garbage Collection Settings for In-Memory activeRooms
+const ROOM_CLEANUP_INTERVAL_MS = 60 * 1000;       // Check every 60 seconds
+const FINISHED_ROOM_TTL_MS = 30 * 60 * 1000;       // Prune 30 mins after finish
+const DISCONNECTED_ROOM_TTL_MS = 10 * 60 * 1000;   // Prune 10 mins after all players disconnect
+const IDLE_LOBBY_TTL_MS = 2 * 60 * 60 * 1000;      // Prune 2 hours after idle lobby
+
+export function pruneStaleRooms() {
+  const now = Date.now();
+  let prunedCount = 0;
+
+  for (const [code, game] of activeRooms.entries()) {
+    const isFinishedExpired = game.status === 'FINISHED' && (now - (game.completedAt || game.lastActivity || game.createdAt)) > FINISHED_ROOM_TTL_MS;
+    const allDisconnected = Array.isArray(game.players) && game.players.length > 0 && game.players.every(p => p.isDisconnected);
+    const isDisconnectedExpired = (allDisconnected || game.players?.length === 0) && game.allDisconnectedAt && (now - game.allDisconnectedAt) > DISCONNECTED_ROOM_TTL_MS;
+    const isLobbyIdleExpired = game.status === 'LOBBY' && (now - (game.lastActivity || game.createdAt)) > IDLE_LOBBY_TTL_MS;
+
+    if (isFinishedExpired || isDisconnectedExpired || isLobbyIdleExpired) {
+      timerManager.clearAllRoomTimers(code);
+      activeRooms.delete(code);
+      prunedCount += 1;
+      const reason = isFinishedExpired ? 'Finished TTL' : isDisconnectedExpired ? 'All Players Disconnected TTL' : 'Idle Lobby TTL';
+      console.log(`🧹 [Garbage Collector] Pruned stale room ${code} (Status: ${game.status}, Reason: ${reason})`);
+    }
+  }
+  return prunedCount;
+}
+
+let cleanupInterval = null;
+export function startRoomGarbageCollector() {
+  if (!cleanupInterval) {
+    cleanupInterval = setInterval(pruneStaleRooms, ROOM_CLEANUP_INTERVAL_MS);
+    if (cleanupInterval.unref) cleanupInterval.unref();
+    console.log('🧹 [Garbage Collector] ActiveRooms TTL background cleaner initialized (60s tick)');
+  }
+}
+
 export function setupQuizSocket(io) {
+  startRoomGarbageCollector();
+
   io.on('connection', (socket) => {
     console.log(`⚡ Socket connected: ${socket.id}`);
 
     // 1. Create Room (Host)
-    socket.on('create_room', async ({ hostName, topic, questionCount, timePerQuestion, difficulty, customApiKey, avatarSeed }) => {
+    socket.on('create_room', async ({ hostName, topic, questionCount, timePerQuestion, difficulty, customApiKey, avatarSeed, isSolo }) => {
       try {
-        const cleanHostName = sanitizeInput(hostName, 24) || 'Host';
+        const cleanHostName = sanitizeInput(hostName, 24) || (isSolo ? 'Solo Explorer' : 'Host');
         const cleanTopic = sanitizeInput(topic, 100) || 'General Science & History';
         const qCount = Math.min(Math.max(Number(questionCount) || 5, 2), 15);
         const tPerQ = Math.min(Math.max(Number(timePerQuestion) || 15, 5), 60);
@@ -174,6 +252,7 @@ export function setupQuizSocket(io) {
           hostSocketId: socket.id,
           topic: cleanTopic,
           status: 'LOBBY',
+          isSolo: Boolean(isSolo),
           settings: {
             questionCount: qCount,
             timePerQuestion: tPerQ,
@@ -200,6 +279,10 @@ export function setupQuizSocket(io) {
           playerQuestions: new Map(), // socketId -> Array of questions
           playerAnswers: new Map(),   // socketId -> Array of user answers
           submissionsCurrentRound: new Set(),
+          createdAt: Date.now(),
+          lastActivity: Date.now(),
+          completedAt: null,
+          allDisconnectedAt: null
         };
 
         activeRooms.set(roomCode, runtimeGame);
@@ -308,6 +391,8 @@ export function setupQuizSocket(io) {
         const oldSocketId = player.socketId;
         player.socketId = socket.id;
         player.isDisconnected = false;
+        game.lastActivity = Date.now();
+        game.allDisconnectedAt = null;
         socket.join(code);
 
         // Migrate question sets if game is in progress
@@ -352,10 +437,15 @@ export function setupQuizSocket(io) {
     });
 
     // 4b. Claim Preloaded Room as Host (From Creator Portal)
-    socket.on('claim_preloaded_host', ({ roomCode, username, avatarSeed }) => {
+    socket.on('claim_preloaded_host', ({ roomCode, username, avatarSeed, questions }) => {
       const code = sanitizeInput(roomCode, 6).toUpperCase();
       const game = activeRooms.get(code);
       if (!game) return socket.emit('error_message', { message: 'Preloaded room not found.' });
+
+      if (Array.isArray(questions) && questions.length > 0) {
+        game.preloadedQuestions = questions;
+        game.settings.questionCount = questions.length;
+      }
 
       game.hostSocketId = socket.id;
       const hostPlayer = game.players.find(p => p.username === username) || game.players[0];
@@ -699,15 +789,19 @@ export function setupQuizSocket(io) {
           } else {
             leavingPlayer.isDisconnected = true;
             leavingPlayer.lastActive = new Date();
+            game.lastActivity = Date.now();
             io.to(code).emit('player_status_change', {
               socketId: socket.id,
               isDisconnected: true,
               username: leavingPlayer.username
             });
 
-            // Check if all remaining players have submitted
+            // Check if all players in the room are now disconnected
             const remainingActive = game.players.filter(p => !p.isDisconnected);
-            if (remainingActive.length > 0 && game.submissionsCurrentRound.size >= remainingActive.length) {
+            if (remainingActive.length === 0) {
+              game.allDisconnectedAt = Date.now();
+              console.log(`⏳ [All Players Disconnected] Room ${code} all-disconnected grace period initiated.`);
+            } else if (game.submissionsCurrentRound.size >= remainingActive.length) {
               timerManager.clearTimer(code);
               triggerAnswerReveal(io, code);
             }
@@ -890,6 +984,8 @@ async function finalizeGame(io, roomCode) {
   timerManager.clearTimer(roomCode);
   timerManager.clearTransitionTimer(roomCode);
   game.status = 'FINISHED';
+  game.completedAt = Date.now();
+  game.lastActivity = Date.now();
 
   const leaderboard = getLeaderboard(game.players);
   const podium = {
