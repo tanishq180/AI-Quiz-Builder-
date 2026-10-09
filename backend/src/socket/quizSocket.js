@@ -758,7 +758,75 @@ export function setupQuizSocket(io) {
       });
     });
 
-    // 8. Disconnect Handling with Reconnection Tolerance
+    // 8. Host Moderation: Kick Player
+    socket.on('kick_player', ({ roomCode, targetSocketId }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game || game.hostSocketId !== socket.id) return;
+
+      const targetIdx = game.players.findIndex(p => p.socketId === targetSocketId);
+      if (targetIdx !== -1 && targetSocketId !== socket.id) {
+        const kicked = game.players[targetIdx];
+        game.players.splice(targetIdx, 1);
+        io.to(targetSocketId).emit('player_kicked', { message: 'You have been removed from the room by the host.' });
+        io.to(code).emit('roster_updated', {
+          players: game.players,
+          hostSocketId: game.hostSocketId
+        });
+        console.log(`🛡️ [Host Moderation] Kicked player "${kicked.username}" from room ${code}`);
+      }
+    });
+
+    // 9. Host Moderation: Pause & Resume Round Timer
+    socket.on('pause_timer', ({ roomCode }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game || game.hostSocketId !== socket.id || game.status !== 'IN_PROGRESS') return;
+
+      const remaining = timerManager.pauseRoundTimer(code);
+      io.to(code).emit('round_timer_paused', { timeRemaining: remaining });
+      console.log(`⏸️ [Host Moderation] Timer paused in ${code} (${remaining}s remaining)`);
+    });
+
+    socket.on('resume_timer', ({ roomCode }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game || game.hostSocketId !== socket.id || game.status !== 'IN_PROGRESS') return;
+
+      const remaining = timerManager.resumeRoundTimer(code);
+      io.to(code).emit('round_timer_resumed', { timeRemaining: remaining });
+      console.log(`▶️ [Host Moderation] Timer resumed in ${code}`);
+    });
+
+    // 10. Host Moderation: Skip Question
+    socket.on('skip_question', ({ roomCode }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game || game.hostSocketId !== socket.id || game.status !== 'IN_PROGRESS') return;
+
+      console.log(`⏩ [Host Moderation] Question skip triggered in ${code}`);
+      timerManager.clearTimer(code);
+      triggerAnswerReveal(io, code);
+    });
+
+    // 11. Live Social Reactions (Floating Emojis)
+    socket.on('send_reaction', ({ roomCode, emoji }) => {
+      const code = sanitizeInput(roomCode, 6).toUpperCase();
+      const game = activeRooms.get(code);
+      if (!game) return;
+
+      const player = game.players.find(p => p.socketId === socket.id);
+      const cleanEmoji = String(emoji || '⚡').slice(0, 8);
+      io.to(code).emit('player_reaction', {
+        id: `${Date.now()}-${Math.random()}`,
+        emoji: cleanEmoji,
+        username: player?.username || 'Player',
+        avatarSeed: player?.avatarSeed || '⚡',
+        socketId: socket.id
+      });
+    });
+
+    // 12. Disconnect Handling with Reconnection Tolerance
     socket.on('disconnect', () => {
       console.log(`🔌 Socket disconnected: ${socket.id}`);
 
@@ -895,7 +963,23 @@ function triggerAnswerReveal(io, roomCode) {
     }
   });
 
-  const transitionDuration = 15; // 15-second reveal window (can be advanced early via Next Question button)
+  // Battle Royale Elimination Check
+  if (game.settings?.gameMode === 'BATTLE_ROYALE' && qIndex >= 1 && qIndex < game.settings.questionCount - 1) {
+    const activeSurvivors = game.players.filter(p => !p.isEliminated);
+    if (activeSurvivors.length > 2) {
+      activeSurvivors.sort((a, b) => (a.score || 0) - (b.score || 0));
+      const eliminatedPlayer = activeSurvivors[0];
+      eliminatedPlayer.isEliminated = true;
+      io.to(roomCode).emit('player_eliminated', {
+        username: eliminatedPlayer.username,
+        socketId: eliminatedPlayer.socketId,
+        score: eliminatedPlayer.score
+      });
+      console.log(`💀 [Battle Royale] Player ${eliminatedPlayer.username} eliminated in ${roomCode}`);
+    }
+  }
+
+  const transitionDuration = (game.isSolo || game.settings?.gameMode === 'SOLO_PRACTICE') ? 30 : 15;
   console.log(`[Answer Reveal] Room ${roomCode} Round ${qIndex + 1} - ${transitionDuration}s transition timer active (or click Next Question)`);
 
   // Broadcast tailored answer_reveal event to each player
@@ -920,6 +1004,7 @@ function triggerAnswerReveal(io, roomCode) {
         totalScore: player.score,
         streak: player.streak,
         timedOut: answerItem.userAnswer === -1,
+        isEliminated: Boolean(player.isEliminated),
         transitionDuration
       });
     }
@@ -1031,7 +1116,8 @@ async function finalizeGame(io, roomCode) {
     difficulty: game.settings.difficulty,
     leaderboard,
     podium,
-    playerBreakdowns: sessionData
+    playerBreakdowns: sessionData,
+    questions: game.questions
   });
 }
 

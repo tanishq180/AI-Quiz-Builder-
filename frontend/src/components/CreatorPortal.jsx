@@ -349,20 +349,20 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto px-4 py-6 sm:py-10 animate-fade-in">
+    <div className="w-full max-w-2xl mx-auto px-4 py-4 sm:py-8 animate-fade-in">
       
       {/* Portal Header */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-zinc-800">
+      <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.08]">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-300">
+          <div className="flex items-center gap-2.5">
+            <span className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
               <BookOpen className="w-4 h-4" />
             </span>
-            <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-zinc-100">
-              Creator Portal
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+              Creator Studio
             </h1>
-            <span className="text-[10px] font-mono tracking-wider px-2 py-0.5 rounded bg-zinc-800/80 text-zinc-300 border border-zinc-700">
-              PDF CURRICULUM
+            <span className="text-[10px] font-mono tracking-wider px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
+              PDF Engine
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -373,7 +373,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
         {onCancel && (
           <button
             onClick={() => { sounds.playPop(); onCancel(); }}
-            className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition"
+            className="text-xs text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition cursor-pointer"
           >
             Back to Quick Arena
           </button>
@@ -382,14 +382,14 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
       {/* Global Error Banner */}
       {errorMsg && (
-        <div className="mb-6 p-3.5 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-start gap-2.5 text-xs text-zinc-200 shadow-sm animate-fade-in">
-          <AlertCircle className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+        <div className="mb-6 p-4 rounded-xl bg-rose-950/80 border border-rose-500/40 flex items-start gap-3 text-xs text-rose-200 shadow-xl animate-fade-in">
+          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
           <div className="flex-1">{errorMsg}</div>
           <button 
             onClick={() => setErrorMsg('')} 
-            className="text-zinc-400 hover:text-zinc-100 transition"
+            className="text-rose-400 hover:text-white transition cursor-pointer"
           >
-            <X className="w-3.5 h-3.5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       )}
@@ -404,8 +404,8 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
             onClick={() => fileInputRef.current?.click()}
             className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-12 text-center transition-all ${
               isDragOver
-                ? 'border-zinc-400 bg-zinc-900/60'
-                : 'border-zinc-800 bg-zinc-900/30 hover:border-zinc-700 hover:bg-zinc-900/50'
+                ? 'border-indigo-400 bg-indigo-500/10 shadow-xl shadow-indigo-500/10'
+                : 'border-white/[0.1] bg-white/[0.02] hover:border-indigo-500/50 hover:bg-white/[0.04]'
             }`}
           >
             <input
@@ -416,27 +416,27 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
               className="hidden"
             />
 
-            <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
-              <UploadCloud className="w-6 h-6 text-zinc-300" />
+            <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-inner">
+              <UploadCloud className="w-7 h-7 text-indigo-300" />
             </div>
 
-            <h3 className="text-sm sm:text-base font-medium text-zinc-100 mb-1">
-              Drag and drop your PDF here, or <span className="text-zinc-300 underline underline-offset-2">browse</span>
+            <h3 className="text-sm sm:text-base font-semibold text-white mb-1.5">
+              Drag and drop your PDF here, or <span className="text-indigo-400 underline underline-offset-2">browse files</span>
             </h3>
-            <p className="text-xs text-zinc-400 max-w-sm mx-auto mb-4">
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto mb-4 leading-relaxed">
               Upload textbook chapters, lecture slides, papers, or technical manuals (up to 25MB).
             </p>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-zinc-900/80 border border-zinc-800 text-[11px] text-zinc-400 font-mono">
-              <FileText className="w-3 h-3 text-zinc-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-[11px] text-zinc-400 font-mono">
+              <FileText className="w-3.5 h-3.5 text-indigo-400" />
               <span>Standard text-based PDF documents supported</span>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-900 flex items-start gap-3 text-xs text-zinc-400">
-            <Sparkles className="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" />
+          <div className="p-4 rounded-2xl studio-card flex items-start gap-3.5 text-xs text-zinc-400">
+            <Sparkles className="w-4 h-4 text-indigo-400 shrink-0 mt-0.5" />
             <div>
-              <span className="font-medium text-zinc-300">Strict Curriculum Grounding: </span>
+              <span className="font-semibold text-zinc-200">Strict Curriculum Grounding: </span>
               Questions will be constructed exclusively from the verified contents of your document, strictly conforming to your custom topic-wise distribution.
             </div>
           </div>
@@ -445,23 +445,23 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
       {/* STEP 2: DOCUMENT ANALYSIS STATE */}
       {step === 'ANALYZING' && (
-        <div className="minimal-panel rounded-2xl p-10 text-center animate-fade-in space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-300" />
+        <div className="studio-panel rounded-2xl p-10 text-center animate-fade-in space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
           </div>
 
           <div>
-            <h3 className="text-base font-medium text-zinc-100">Analyzing Document...</h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
+            <h3 className="text-base font-semibold text-white">Analyzing Document...</h3>
+            <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
               Extracting raw text, computing chapter breakdown, and scanning prospective sub-topics for your curriculum.
             </p>
           </div>
 
           {file && (
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 font-mono">
-              <FileText className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-zinc-300 font-mono">
+              <FileText className="w-3.5 h-3.5 text-indigo-400" />
               <span className="truncate max-w-[220px]">{file.name}</span>
-              <span className="text-zinc-400">({(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
+              <span className="text-zinc-500">({(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
             </div>
           )}
         </div>
@@ -472,15 +472,17 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
         <form onSubmit={handleGenerateQuiz} className="space-y-6 animate-fade-in">
           
           {/* Document Summary Card */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col gap-3">
+          <div className="p-4 sm:p-5 rounded-2xl studio-card flex flex-col gap-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4 text-zinc-300" />
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <FileText className="w-4 h-4" />
+                </div>
                 <div>
-                  <div className="text-xs font-medium text-zinc-100 truncate max-w-[280px] sm:max-w-md">
+                  <div className="text-xs font-semibold text-white truncate max-w-[260px] sm:max-w-md">
                     {extractedData.filename}
                   </div>
-                  <div className="text-[11px] text-zinc-400 flex items-center gap-2">
+                  <div className="text-[11px] text-zinc-400 flex items-center gap-2 mt-0.5">
                     <span>{extractedData.pageCount} Pages</span>
                     <span>•</span>
                     <span>{(extractedData.totalCharacters / 1000).toFixed(1)}k characters parsed</span>
@@ -492,7 +494,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                 <button
                   type="button"
                   onClick={() => setShowPreview(!showPreview)}
-                  className="text-[11px] text-zinc-400 hover:text-zinc-200 px-2.5 py-1 rounded bg-zinc-900 border border-zinc-800 flex items-center gap-1 transition"
+                  className="text-[11px] text-zinc-300 hover:text-white px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center gap-1.5 transition cursor-pointer"
                 >
                   {showPreview ? 'Hide Snippet' : 'View Snippet'}
                   {showPreview ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -506,7 +508,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                     setStep('UPLOAD');
                   }}
                   title="Upload different PDF"
-                  className="p-1 rounded text-zinc-400 hover:text-zinc-200 transition"
+                  className="p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.08] transition cursor-pointer"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                 </button>
@@ -515,21 +517,21 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
             {/* Document Preview Snippet */}
             {showPreview && extractedData.previewSnippet && (
-              <div className="p-3 rounded-lg bg-zinc-950 border border-zinc-800/80 text-[11px] font-mono text-zinc-400 max-h-40 overflow-y-auto leading-relaxed whitespace-pre-wrap">
+              <div className="p-3.5 rounded-xl bg-[#08090d]/90 border border-white/[0.08] text-[11px] font-mono text-zinc-400 max-h-40 overflow-y-auto leading-relaxed whitespace-pre-wrap">
                 {extractedData.previewSnippet}...
               </div>
             )}
           </div>
 
           {/* Host Setup & Avatar */}
-          <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4">
-            <div className="text-xs font-medium text-zinc-300 tracking-wide uppercase">
+          <div className="p-5 rounded-2xl studio-panel space-y-4">
+            <div className="text-xs font-mono uppercase tracking-wider text-zinc-400">
               Host Setup
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-2">
                   Host Name
                 </label>
                 <input
@@ -539,12 +541,12 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                   value={hostName}
                   onChange={(e) => setHostName(e.target.value)}
                   placeholder="e.g. Professor Smith"
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 text-xs focus:outline-none focus:border-zinc-600 transition"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0e1019]/90 border border-white/[0.09] text-white text-xs focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition shadow-inner"
                 />
               </div>
 
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-2">
                   Host Avatar
                 </label>
                 <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -553,10 +555,10 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                       key={av}
                       type="button"
                       onClick={() => { sounds.playPop(); setSelectedAvatar(av); }}
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm transition shrink-0 ${
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm transition shrink-0 cursor-pointer ${
                         selectedAvatar === av
-                          ? 'bg-zinc-800 border border-zinc-600 text-zinc-100 shadow-sm'
-                          : 'bg-zinc-900 border border-zinc-800/80 text-zinc-400 hover:text-zinc-200'
+                          ? 'bg-indigo-600/30 border-2 border-indigo-400 text-white shadow-md'
+                          : 'bg-white/[0.04] border border-white/[0.07] text-zinc-400 hover:text-white'
                       }`}
                     >
                       {av}
@@ -568,15 +570,15 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
           </div>
 
           {/* Global Parameters: Total Questions, Difficulty, Round Timer */}
-          <div className="p-4 rounded-xl bg-zinc-900/40 border border-zinc-800/80 space-y-4">
-            <div className="text-xs font-medium text-zinc-300 tracking-wide uppercase">
+          <div className="p-5 rounded-2xl studio-panel space-y-4">
+            <div className="text-xs font-mono uppercase tracking-wider text-zinc-400">
               Quiz Parameters
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Total Question Count */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-2">
                   Total Questions
                 </label>
                 <select
@@ -585,57 +587,57 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                     const newTotal = Number(e.target.value);
                     setTotalQuestions(newTotal);
                   }}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 text-xs focus:outline-none focus:border-zinc-600 transition"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#0e1019]/90 border border-white/[0.09] text-white text-xs focus:outline-none focus:border-indigo-500 transition cursor-pointer"
                 >
                   {[3, 4, 5, 6, 8, 10, 12, 15].map((cnt) => (
-                    <option key={cnt} value={cnt}>{cnt} Questions</option>
+                    <option key={cnt} value={cnt} className="bg-zinc-900">{cnt} Questions</option>
                   ))}
                 </select>
               </div>
 
               {/* Difficulty Level */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-2">
                   Difficulty Level
                 </label>
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 text-xs focus:outline-none focus:border-zinc-600 transition"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#0e1019]/90 border border-white/[0.09] text-white text-xs focus:outline-none focus:border-indigo-500 transition cursor-pointer"
                 >
                   {DIFFICULTIES.map((d) => (
-                    <option key={d.level} value={d.level}>{d.level}</option>
+                    <option key={d.level} value={d.level} className="bg-zinc-900">{d.level}</option>
                   ))}
                 </select>
               </div>
 
               {/* Round Timer */}
               <div>
-                <label className="block text-xs text-zinc-400 mb-1.5">
+                <label className="block text-xs font-medium text-zinc-300 mb-2">
                   Time Per Question
                 </label>
                 <select
                   value={timePerQuestion}
                   onChange={(e) => setTimePerQuestion(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 text-xs focus:outline-none focus:border-zinc-600 transition"
+                  className="w-full px-3 py-2.5 rounded-xl bg-[#0e1019]/90 border border-white/[0.09] text-white text-xs focus:outline-none focus:border-indigo-500 transition cursor-pointer"
                 >
-                  <option value={10}>10 Seconds (Fast)</option>
-                  <option value={15}>15 Seconds (Standard)</option>
-                  <option value={20}>20 Seconds (Moderate)</option>
-                  <option value={30}>30 Seconds (Relaxed)</option>
+                  <option value={10} className="bg-zinc-900">10 Seconds (Fast)</option>
+                  <option value={15} className="bg-zinc-900">15 Seconds (Standard)</option>
+                  <option value={20} className="bg-zinc-900">20 Seconds (Moderate)</option>
+                  <option value={30} className="bg-zinc-900">30 Seconds (Relaxed)</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* CRUCIAL REQUIREMENT: DYNAMIC TOPIC-WISE SPLIT */}
-          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-4">
+          {/* DYNAMIC TOPIC-WISE SPLIT */}
+          <div className="p-5 rounded-2xl studio-panel space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-zinc-300" />
-                  <span className="text-xs font-medium text-zinc-100 uppercase tracking-wide">
-                    Topic-Wise Split (Crucial)
+                  <Layers className="w-4 h-4 text-indigo-400" />
+                  <span className="text-xs font-mono uppercase tracking-wider text-white font-semibold">
+                    Topic-Wise Split (Curriculum Allocation)
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
@@ -648,16 +650,16 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                 <button
                   type="button"
                   onClick={handleAutoDistribute}
-                  className="text-[11px] px-2.5 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition"
+                  className="text-[11px] px-3 py-1 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-zinc-300 hover:text-white transition cursor-pointer"
                 >
                   Auto-Distribute
                 </button>
-                <div className={`px-2.5 py-1 rounded text-[11px] font-mono border ${
+                <div className={`px-3 py-1 rounded-full text-[11px] font-mono border font-semibold ${
                   isAllocationBalanced
-                    ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                     : totalAllocated < totalQuestions
-                      ? 'bg-zinc-900 text-zinc-400 border-zinc-800'
-                      : 'bg-zinc-900 text-zinc-300 border-zinc-700'
+                      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                      : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                 }`}>
                   Allocated: {totalAllocated} / {totalQuestions}
                 </div>
@@ -669,9 +671,9 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
               {topicDistribution.map((item, index) => (
                 <div 
                   key={item.id}
-                  className="flex items-center gap-2 p-2 rounded-lg bg-zinc-950 border border-zinc-800/80 transition-all focus-within:border-zinc-700"
+                  className="flex items-center gap-2.5 p-2.5 rounded-xl bg-[#08090d]/80 border border-white/[0.08] transition-all focus-within:border-indigo-500/50"
                 >
-                  <span className="text-[11px] font-mono text-zinc-400 w-5 text-center">
+                  <span className="text-[11px] font-mono font-bold text-zinc-500 w-5 text-center">
                     {index + 1}.
                   </span>
 
@@ -682,19 +684,19 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                     placeholder="e.g. Thermodynamics, Fluid Dynamics, Entropy"
                     value={item.topic}
                     onChange={(e) => handleTopicNameChange(item.id, e.target.value)}
-                    className="flex-1 bg-transparent px-2 py-1 text-xs text-zinc-100 placeholder:text-zinc-600 focus:outline-none"
+                    className="flex-1 bg-transparent px-2 py-1 text-xs text-white placeholder:text-zinc-600 focus:outline-none"
                   />
 
                   {/* Question Count Selector */}
-                  <div className="flex items-center gap-1.5 shrink-0 bg-zinc-900 px-2 py-1 rounded border border-zinc-800">
-                    <span className="text-[10px] text-zinc-400">Qty:</span>
+                  <div className="flex items-center gap-1.5 shrink-0 bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.08]">
+                    <span className="text-[10px] text-zinc-400 font-mono">Qty:</span>
                     <input
                       type="number"
                       min={1}
                       max={15}
                       value={item.questionCount}
                       onChange={(e) => handleTopicCountChange(item.id, e.target.value)}
-                      className="w-10 bg-transparent text-center text-xs font-mono text-zinc-200 focus:outline-none"
+                      className="w-10 bg-transparent text-center text-xs font-mono font-bold text-indigo-300 focus:outline-none"
                     />
                   </div>
 
@@ -704,7 +706,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                     disabled={topicDistribution.length <= 1}
                     onClick={() => handleRemoveTopic(item.id)}
                     title={topicDistribution.length <= 1 ? "At least one topic required" : "Remove topic"}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-200 disabled:opacity-30 disabled:hover:text-zinc-600 transition"
+                    className="p-1.5 text-zinc-400 hover:text-rose-400 disabled:opacity-30 transition cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
@@ -717,7 +719,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
               <button
                 type="button"
                 onClick={handleAddTopic}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-zinc-100 px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition"
+                className="inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white px-3.5 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add Topic Row
@@ -725,7 +727,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
               {/* Status helper label */}
               {!isAllocationBalanced && (
-                <span className="text-[11px] text-zinc-400">
+                <span className="text-[11px] font-mono text-amber-400">
                   {totalAllocated < totalQuestions
                     ? `${totalQuestions - totalAllocated} remaining to allocate`
                     : `Exceeds total questions by ${totalAllocated - totalQuestions}`}
@@ -739,14 +741,14 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
             <button
               type="submit"
               disabled={!isAllocationBalanced || !hostName.trim()}
-              className="w-full py-3 px-4 rounded-xl bg-zinc-100 text-zinc-950 font-medium text-xs sm:text-sm hover:bg-zinc-200 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 shadow-sm"
+              className="w-full py-3.5 px-4 rounded-xl studio-btn-primary font-semibold text-xs sm:text-sm disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
             >
-              <span>Generate Quiz & Launch Arena</span>
+              <span>Synthesize Curriculum & Launch Arena</span>
               <ArrowRight className="w-4 h-4" />
             </button>
 
             {!isAllocationBalanced && (
-              <p className="text-center text-[11px] text-zinc-400 mt-2">
+              <p className="text-center text-[11px] text-zinc-400 mt-2 font-mono">
                 Make sure your topic question count ({totalAllocated}) equals total questions ({totalQuestions}).
               </p>
             )}
@@ -757,25 +759,25 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
       {/* STEP 4: SYNTHESIZING STATE */}
       {step === 'GENERATING' && (
-        <div className="minimal-panel rounded-2xl p-10 text-center animate-fade-in space-y-4">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-300">
-            <Loader2 className="w-6 h-6 animate-spin text-zinc-300" />
+        <div className="studio-panel rounded-2xl p-10 text-center animate-fade-in space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
           </div>
 
           <div>
-            <h3 className="text-base font-medium text-zinc-100">
+            <h3 className="text-base font-semibold text-white">
               Synthesizing Custom Curriculum...
             </h3>
-            <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto">
+            <p className="text-xs text-zinc-400 mt-1 max-w-md mx-auto leading-relaxed">
               Grounding questions strictly within the provided document and enforcing your topic-wise distribution.
             </p>
           </div>
 
-          <div className="max-w-xs mx-auto p-3 rounded-lg bg-zinc-900/60 border border-zinc-800/80 text-[11px] font-mono text-zinc-400 text-left space-y-1">
-            <div className="text-zinc-300 font-sans font-medium">Topic Targets:</div>
+          <div className="max-w-xs mx-auto p-4 rounded-xl bg-[#08090d]/80 border border-white/[0.08] text-[11px] font-mono text-zinc-400 text-left space-y-1">
+            <div className="text-zinc-200 font-sans font-semibold mb-1">Curriculum Targets:</div>
             {topicDistribution.map((t, idx) => (
-              <div key={idx} className="truncate">
-                • {t.topic || 'General'}: {t.questionCount} Qs
+              <div key={idx} className="truncate text-zinc-300">
+                • {t.topic || 'General'}: <span className="text-indigo-400 font-bold">{t.questionCount} Qs</span>
               </div>
             ))}
           </div>
@@ -787,29 +789,29 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
         <div className="space-y-6 animate-fade-in">
           
           {/* Review Action Header */}
-          <div className="p-4 rounded-xl bg-zinc-900/70 border border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="p-5 rounded-2xl studio-panel flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="p-1 rounded bg-zinc-800 text-zinc-300">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <div className="flex items-center gap-2.5">
+                <span className="p-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                  <CheckCircle2 className="w-4 h-4" />
                 </span>
-                <h2 className="text-sm sm:text-base font-semibold text-zinc-100">
-                  Review & Customize Questions
+                <h2 className="text-sm sm:text-base font-semibold text-white">
+                  Review & Inspect Questions
                 </h2>
-                <span className="text-xs font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                   {generatedQuestions.length} Questions
                 </span>
               </div>
               <p className="text-xs text-zinc-400 mt-1">
-                Fine-tune wording, switch correct answers, or add custom questions before launching the arena.
+                Fine-tune wording, switch verified correct answers, or add custom questions before launching the arena.
               </p>
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2.5 shrink-0">
               <button
                 type="button"
                 onClick={() => { sounds.playPop(); setStep('CONFIG'); }}
-                className="text-xs text-zinc-400 hover:text-zinc-200 px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition flex items-center gap-1.5"
+                className="text-xs text-zinc-300 hover:text-white px-3.5 py-2 rounded-xl bg-white/[0.04] border border-white/[0.08] hover:bg-white/[0.08] transition flex items-center gap-1.5 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 <span>Config</span>
@@ -818,7 +820,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
               <button
                 type="button"
                 onClick={handleConfirmDeployLobby}
-                className="text-xs sm:text-sm font-medium text-zinc-950 bg-zinc-100 hover:bg-zinc-200 px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-sm"
+                className="text-xs sm:text-sm font-semibold studio-btn-primary px-4 py-2 rounded-xl transition flex items-center gap-2 shadow-xl cursor-pointer"
               >
                 <span>Deploy Lobby</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -831,12 +833,12 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
             {generatedQuestions.map((q, qIdx) => (
               <div 
                 key={q.id || `review-q-${qIdx}`}
-                className="minimal-panel rounded-xl p-4 sm:p-5 border border-zinc-800/90 space-y-3"
+                className="studio-panel rounded-2xl p-5 space-y-3.5"
               >
                 {/* Question Header & Subfocus */}
-                <div className="flex items-center justify-between gap-2 border-b border-zinc-800/60 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                <div className="flex items-center justify-between gap-2 border-b border-white/[0.08] pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xs font-mono font-bold px-2.5 py-0.5 rounded-lg bg-indigo-500/15 text-indigo-300 border border-indigo-500/30">
                       Q{qIdx + 1}
                     </span>
                     {q.subFocus && (
@@ -850,7 +852,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                     <button
                       type="button"
                       onClick={() => handleDeleteQuestion(qIdx)}
-                      className="text-zinc-500 hover:text-red-400 p-1 rounded hover:bg-zinc-900 transition"
+                      className="text-zinc-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/[0.04] transition cursor-pointer"
                       title="Delete this question"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -860,14 +862,14 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
                 {/* Question Textarea */}
                 <div>
-                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">
                     Question Prompt
                   </label>
                   <textarea
                     rows={2}
                     value={q.question}
                     onChange={(e) => handleEditQuestionText(qIdx, e.target.value)}
-                    className="w-full text-xs sm:text-sm text-zinc-100 bg-zinc-900/80 border border-zinc-800 rounded-lg p-2.5 focus:outline-none focus:border-zinc-600 transition resize-none"
+                    className="w-full text-xs sm:text-sm text-white bg-[#0e1019]/90 border border-white/[0.09] rounded-xl p-3 focus:outline-none focus:border-indigo-500 transition resize-none shadow-inner"
                     placeholder="Enter question text..."
                   />
                 </div>
@@ -877,25 +879,25 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                   <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider">
                     Options (Click circle to select the verified correct answer)
                   </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {q.options.map((opt, optIdx) => {
                       const isCorrect = q.correctIndex === optIdx;
                       return (
                         <div 
                           key={optIdx}
-                          className={`flex items-center gap-2 p-2 rounded-lg border transition ${
+                          className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition ${
                             isCorrect 
-                              ? 'bg-emerald-950/20 border-emerald-500/50' 
-                              : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-700'
+                              ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' 
+                              : 'bg-white/[0.03] border-white/[0.07] hover:border-white/[0.12]'
                           }`}
                         >
                           <button
                             type="button"
                             onClick={() => handleSetCorrectIndex(qIdx, optIdx)}
-                            className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center border transition ${
+                            className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center border transition cursor-pointer ${
                               isCorrect
-                                ? 'bg-emerald-500 border-emerald-400 text-zinc-950'
-                                : 'border-zinc-700 hover:border-zinc-500 text-transparent'
+                                ? 'bg-emerald-500 border-emerald-400 text-zinc-950 shadow-sm'
+                                : 'border-zinc-700 hover:border-zinc-400 text-transparent'
                             }`}
                             title={isCorrect ? 'Correct Answer' : 'Click to make correct answer'}
                           >
@@ -906,7 +908,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
                             type="text"
                             value={opt}
                             onChange={(e) => handleEditOption(qIdx, optIdx, e.target.value)}
-                            className="flex-1 bg-transparent text-xs text-zinc-200 focus:outline-none focus:text-zinc-100"
+                            className="flex-1 bg-transparent text-xs text-white focus:outline-none"
                             placeholder={`Option ${String.fromCharCode(65 + optIdx)}`}
                           />
                         </div>
@@ -917,14 +919,14 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
 
                 {/* Explanation */}
                 <div>
-                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1">
+                  <label className="block text-[11px] font-mono text-zinc-400 uppercase tracking-wider mb-1.5">
                     Explanation (Post-Round Reveal)
                   </label>
                   <input
                     type="text"
                     value={q.explanation || ''}
                     onChange={(e) => handleEditExplanation(qIdx, e.target.value)}
-                    className="w-full text-xs text-zinc-300 bg-zinc-900/60 border border-zinc-800 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-zinc-600 transition"
+                    className="w-full text-xs text-zinc-200 bg-[#0e1019]/70 border border-white/[0.09] rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500 transition shadow-inner"
                     placeholder="Brief explanation for players..."
                   />
                 </div>
@@ -933,11 +935,11 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
           </div>
 
           {/* Footer Controls */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3.5 pt-2">
             <button
               type="button"
               onClick={handleAddCustomQuestion}
-              className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 transition flex items-center justify-center gap-1.5"
+              className="w-full sm:w-auto px-5 py-2.5 rounded-xl studio-btn-secondary text-xs flex items-center justify-center gap-2 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Custom Question</span>
@@ -946,7 +948,7 @@ export default function CreatorPortal({ onQuizCreated, customApiKey, currentSock
             <button
               type="button"
               onClick={handleConfirmDeployLobby}
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-zinc-100 text-zinc-950 font-medium text-xs sm:text-sm hover:bg-zinc-200 transition flex items-center justify-center gap-2 shadow-sm"
+              className="w-full sm:w-auto px-7 py-3 rounded-xl studio-btn-primary font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
             >
               <span>Confirm & Launch Arena ({generatedQuestions.length} Questions)</span>
               <ArrowRight className="w-4 h-4" />

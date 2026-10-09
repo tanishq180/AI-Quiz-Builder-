@@ -9,8 +9,9 @@
 
   body {
     font-family: var(--font-body);
-    background-color: #09090b;
-    color: #f4f4f5;
+    background-color: #08090d;
+    color: #f3f4f6;
+    overflow-x: hidden;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -19,56 +20,200 @@
   }
 }
 
-/* Minimalist architectural panels */
+/* Linear & Vercel-Style Studio Design System */
+
+/* Background Atmospheric Canvas */
+.studio-canvas {
+  background-color: #08090d;
+  background-image: 
+    radial-gradient(ellipse 80% 50% at 50% -15%, rgba(99, 102, 241, 0.12), transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 60%, rgba(59, 130, 246, 0.05), transparent 60%),
+    radial-gradient(ellipse 60% 40% at 20% 80%, rgba(139, 92, 246, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Studio Glass Panels */
+.studio-panel {
+  background: rgba(14, 16, 23, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 16px 40px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
+}
+
+.studio-panel-glow {
+  background: rgba(14, 16, 23, 0.75);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  box-shadow: 
+    0 16px 48px -10px rgba(0, 0, 0, 0.7),
+    0 0 30px -5px rgba(99, 102, 241, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Studio Cards */
+.studio-card {
+  background: rgba(20, 23, 33, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 
+    0 4px 16px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+}
+
+.studio-card-interactive {
+  background: rgba(20, 23, 33, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 
+    0 4px 16px -2px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-card-interactive:hover {
+  background: rgba(27, 31, 46, 0.8);
+  border-color: rgba(99, 102, 241, 0.35);
+  box-shadow: 
+    0 8px 24px -4px rgba(0, 0, 0, 0.4),
+    0 0 15px -3px rgba(99, 102, 241, 0.15),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+/* Studio Primary Action Button (Linear / Vercel stark contrast) */
+.studio-btn-primary {
+  background: #ffffff;
+  color: #090a0f;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 
+    0 4px 12px -2px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.8);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-btn-primary:hover {
+  background: #f4f4f5;
+  box-shadow: 
+    0 6px 20px -2px rgba(255, 255, 255, 0.3),
+    inset 0 1px 0 0 rgba(255, 255, 255, 1);
+  transform: translateY(-0.5px);
+}
+
+.studio-btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Studio Secondary Dark Button */
+.studio-btn-secondary {
+  background: rgba(255, 255, 255, 0.04);
+  color: #e4e4e7;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(8px);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.studio-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.studio-btn-secondary:active {
+  transform: scale(0.98);
+}
+
+/* Studio Subtle Glow Badge */
+.studio-pill {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(8px);
+}
+
+/* Backward-compatible minimal classes */
 .minimal-panel {
-  background: #111113;
-  border: 1px solid #27272a;
-  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  background: rgba(14, 16, 23, 0.72);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 16px 40px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.07);
 }
 
 .minimal-card {
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: rgba(20, 23, 33, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
 }
 
 .minimal-card-hover {
-  background: #18181b;
-  border: 1px solid #27272a;
+  background: rgba(20, 23, 33, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .minimal-card-hover:hover {
-  background: #1f1f23;
-  border-color: #3f3f46;
+  background: rgba(27, 31, 46, 0.8);
+  border-color: rgba(99, 102, 241, 0.35);
+  transform: translateY(-1px);
 }
 
-/* Subtle accent focus */
-.subtle-focus {
-  border-color: #52525b;
-}
-
-/* Fade animation */
+/* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
 
 .animate-fade-in {
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Minimalist scrollbar */
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes floatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.7);
+  }
+  15% {
+    opacity: 1;
+    transform: translateY(0px) scale(1.2);
+  }
+  80% {
+    opacity: 0.9;
+    transform: translateY(-90px) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-140px) scale(0.8);
+  }
+}
+
+.animate-float-up {
+  animation: floatUp 2.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Sleek Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #08090d;
 }
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3f3f46;
+  background: rgba(255, 255, 255, 0.2);
 }

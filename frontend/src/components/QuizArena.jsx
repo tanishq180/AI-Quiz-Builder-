@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Award, AlertCircle, Compass, Loader2, ArrowRight } from 'lucide-react';
+import { 
+  Check, X, Award, AlertCircle, Compass, Loader2, ArrowRight, Flame, Clock, 
+  Pause, Play, FastForward, Maximize2, Minimize2, Skull, Sparkles 
+} from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D'];
+const EMOJI_REACTIONS = ['🔥', '👏', '💡', '😱', '⚡', '🎉'];
 
 export default function QuizArena({
   questionData,
@@ -13,11 +17,21 @@ export default function QuizArena({
   leaderboard,
   currentSocketId,
   serverAuthoritativeTime,
-  onNextQuestion
+  onNextQuestion,
+  isHost = false,
+  isTimerPaused = false,
+  onPauseTimer,
+  onResumeTimer,
+  onSkipQuestion,
+  onSendReaction,
+  incomingReaction = null,
+  isEliminated = false
 }) {
   const [selectedIndex, setSelectedIndex] = useState(null);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(questionData.timeLimit || 15);
+  const [floatingReactions, setFloatingReactions] = useState([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const isRevealPhase = roundStatus === 'REVEAL_ANSWER';
   const totalTime = questionData.timeLimit || 15;
@@ -37,6 +51,8 @@ export default function QuizArena({
     setHasSubmitted(false);
     setTimeRemaining(questionData.timeLimit || 15);
 
+    if (isTimerPaused) return;
+
     const startTime = questionData.roundStartTime || Date.now();
     const interval = setInterval(() => {
       const elapsed = (Date.now() - startTime) / 1000;
@@ -49,22 +65,74 @@ export default function QuizArena({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [questionData.id, questionData.roundStartTime, totalTime]);
+  }, [questionData.id, questionData.roundStartTime, totalTime, isTimerPaused]);
 
-  // Handle optimistic answer submission
+  // Handle incoming reactions for burst animation
+  useEffect(() => {
+    if (incomingReaction?.emoji) {
+      const newBurst = {
+        id: Date.now() + Math.random(),
+        emoji: incomingReaction.emoji,
+        senderName: incomingReaction.senderName || '',
+        x: Math.floor(Math.random() * 70) + 15 // Random horizontal 15% - 85%
+      };
+      setFloatingReactions(prev => [...prev.slice(-15), newBurst]);
+
+      const timer = setTimeout(() => {
+        setFloatingReactions(prev => prev.filter(r => r.id !== newBurst.id));
+      }, 2300);
+
+      return () => clearTimeout(timer);
+    }
+  }, [incomingReaction]);
+
+  // Fullscreen toggle handler
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+        setIsFullscreen(false);
+      }
+    }
+  };
+
+  // Optimistic answer submission
   const handleSelectOption = (idx) => {
-    if (isRevealPhase || hasSubmitted || timeRemaining <= 0) return;
+    if (isRevealPhase || hasSubmitted || timeRemaining <= 0 || isEliminated) return;
     sounds.playPop();
     setSelectedIndex(idx);
     setHasSubmitted(true);
     onSubmitAnswer(questionData.questionIndex, idx);
   };
 
-  // Keyboard shortcut listener (A, B, C, D or 1, 2, 3, 4) for rapid response & speed bonus
+  // Keyboard shortcut listener (A-D, Space/Enter for Next, F for fullscreen)
   useEffect(() => {
     function handleKeyDown(e) {
-      if (isRevealPhase || hasSubmitted || timeRemaining <= 0) return;
+      // Don't trigger if user is typing in an input
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
       const key = e.key.toUpperCase();
+
+      // Fullscreen shortcut
+      if (key === 'F') {
+        toggleFullscreen();
+        return;
+      }
+
+      // Next question shortcut during reveal
+      if (isRevealPhase && (e.code === 'Space' || e.key === 'Enter')) {
+        e.preventDefault();
+        sounds.playPop();
+        onNextQuestion?.();
+        return;
+      }
+
+      // Option selection shortcuts during active phase
+      if (isRevealPhase || hasSubmitted || timeRemaining <= 0 || isEliminated) return;
+
       let index = -1;
       if (key === 'A' || key === '1') index = 0;
       else if (key === 'B' || key === '2') index = 1;
@@ -78,7 +146,7 @@ export default function QuizArena({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isRevealPhase, hasSubmitted, timeRemaining, questionData.options]);
+  }, [isRevealPhase, hasSubmitted, timeRemaining, questionData.options, isEliminated, onNextQuestion]);
 
   // Sound triggers on answer reveal
   useEffect(() => {
@@ -91,6 +159,24 @@ export default function QuizArena({
     }
   }, [isRevealPhase, answerRevealData]);
 
+  // Reaction button trigger
+  const handleEmojiClick = (emoji) => {
+    sounds.playPop();
+    // Add locally immediately
+    const localBurst = {
+      id: Date.now() + Math.random(),
+      emoji,
+      senderName: 'You',
+      x: Math.floor(Math.random() * 60) + 20
+    };
+    setFloatingReactions(prev => [...prev.slice(-15), localBurst]);
+    setTimeout(() => {
+      setFloatingReactions(prev => prev.filter(r => r.id !== localBurst.id));
+    }, 2300);
+
+    onSendReaction?.(emoji);
+  };
+
   // Transition countdown calculations
   const transitionTotal = answerRevealData?.transitionDuration || 5;
   const currentTransitionSec = typeof transitionSecondsRemaining === 'number' 
@@ -98,42 +184,81 @@ export default function QuizArena({
     : transitionTotal;
   const transitionProgress = Math.max(0, Math.min(100, (currentTransitionSec / transitionTotal) * 100));
 
-  const timerStrokeColor = timeRemaining > 4 ? 'stroke-zinc-300' : 'stroke-zinc-500';
-  const myPlayer = leaderboard?.find(p => p.socketId === currentSocketId);
+  const timerStrokeColor = timeRemaining > 5 
+    ? 'stroke-indigo-400' 
+    : timeRemaining > 2 
+      ? 'stroke-amber-400' 
+      : 'stroke-rose-500';
 
-  // Identify correct answer index and user's choice
+  const myPlayer = leaderboard?.find(p => p.socketId === currentSocketId);
   const correctIndex = answerRevealData ? answerRevealData.correctIndex : null;
   const finalUserAnswer = answerRevealData ? answerRevealData.userAnswer : selectedIndex;
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 py-6 animate-fade-in">
-      
-      {/* Top Header: Progress & Synchronized Round Clock */}
-      <div className="flex items-center justify-between gap-4 mb-5">
+    <div className="w-full max-w-5xl mx-auto px-4 py-4 sm:py-6 animate-fade-in relative">
+
+      {/* Floating Emoji Reaction Bursts Layer */}
+      <div className="pointer-events-none fixed inset-0 z-50 overflow-hidden">
+        {floatingReactions.map(r => (
+          <div
+            key={r.id}
+            className="absolute bottom-20 animate-float-up flex flex-col items-center drop-shadow-lg"
+            style={{ left: `${r.x}%` }}
+          >
+            <span className="text-4xl sm:text-5xl select-none">{r.emoji}</span>
+            {r.senderName && (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-black/60 text-white backdrop-blur-sm mt-1 border border-white/10">
+                {r.senderName}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Battle Royale Elimination Banner */}
+      {isEliminated && (
+        <div className="mb-4 p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 flex items-center justify-between text-rose-300 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <Skull className="w-5 h-5 text-rose-400 animate-pulse" />
+            <span className="text-xs font-semibold uppercase tracking-wider">
+              Battle Royale Elimination — You are now in Spectator Mode
+            </span>
+          </div>
+          <span className="text-[11px] font-mono text-zinc-400">
+            Enjoy spectating & cheer via emoji reactions!
+          </span>
+        </div>
+      )}
+
+      {/* Top Header: Progress, Streak, Timer, Fullscreen */}
+      <div className="flex items-center justify-between gap-4 mb-3">
         
         <div className="flex items-center gap-2.5 flex-wrap">
-          <span className="px-3 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300">
-            {questionData.questionIndex + 1} / {questionData.totalQuestions}
+          <span className="px-3 py-1.5 rounded-xl bg-white/[0.05] border border-white/[0.08] text-xs font-mono font-medium text-white shadow-inner">
+            Question {questionData.questionIndex + 1} of {questionData.totalQuestions}
           </span>
 
           {myPlayer?.streak > 1 && (
-            <span className="px-2.5 py-1 rounded-lg bg-zinc-800 text-zinc-200 border border-zinc-700 text-xs font-mono">
+            <span className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold shadow-lg shadow-amber-500/10">
+              <Flame className="w-3.5 h-3.5 fill-current text-amber-400 animate-pulse" />
               {myPlayer.streak}x Streak
             </span>
           )}
 
           {/* Phase Badge */}
-          <span className={`px-2.5 py-1 rounded-lg text-xs font-mono border transition-colors ${
+          <span className={`px-3 py-1.5 rounded-xl text-xs font-mono font-medium border transition-colors ${
             isRevealPhase
-              ? 'bg-zinc-800 text-zinc-200 border-zinc-600'
-              : 'bg-zinc-900 text-zinc-400 border-zinc-800'
+              ? 'bg-indigo-500/20 text-indigo-200 border-indigo-500/40 shadow-lg shadow-indigo-500/10'
+              : isTimerPaused
+                ? 'bg-amber-500/20 text-amber-200 border-amber-500/40'
+                : 'bg-white/[0.04] text-zinc-400 border-white/[0.07]'
           }`}>
-            {isRevealPhase ? 'REVEAL PHASE' : 'ANSWERING'}
+            {isRevealPhase ? 'REVEAL PHASE' : isTimerPaused ? 'PAUSED BY HOST' : 'ANSWERING'}
           </span>
 
           {questionData.subFocus && (
-            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-900/60 border border-zinc-800 text-xs text-zinc-400">
-              <Compass className="w-3.5 h-3.5 text-zinc-400" />
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/[0.07] text-xs text-zinc-400">
+              <Compass className="w-3.5 h-3.5 text-indigo-400" />
               <span className="truncate max-w-[220px] text-[11px]">
                 {questionData.subFocus}
               </span>
@@ -141,19 +266,27 @@ export default function QuizArena({
           )}
         </div>
 
-        {/* Minimalist Clock & Transition Indicator (Fixed width/height container to avoid layout shift) */}
-        <div className="flex items-center gap-2.5 min-w-[130px] justify-end">
+        {/* Precision Clock, Fullscreen & Controls */}
+        <div className="flex items-center gap-3 justify-end">
+          <button
+            onClick={toggleFullscreen}
+            title="Toggle Fullscreen (F)"
+            className="p-2 rounded-xl bg-white/[0.03] border border-white/[0.08] text-zinc-400 hover:text-white hover:bg-white/[0.08] transition cursor-pointer"
+          >
+            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+
           {!isRevealPhase ? (
-            <>
-              <div className="relative w-10 h-10 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 36 36">
+            <div className="flex items-center gap-2.5">
+              <div className="relative w-11 h-11 flex items-center justify-center">
+                <svg className="w-full h-full -rotate-90 transform drop-shadow-md" viewBox="0 0 36 36">
                   <circle
                     cx="18"
                     cy="18"
                     r="15.9155"
                     fill="none"
-                    className="stroke-zinc-800"
-                    strokeWidth="2.5"
+                    className="stroke-white/[0.06]"
+                    strokeWidth="2.8"
                   />
                   <circle
                     cx="18"
@@ -161,24 +294,24 @@ export default function QuizArena({
                     r="15.9155"
                     fill="none"
                     className={`transition-all duration-100 ${timerStrokeColor}`}
-                    strokeWidth="2.5"
+                    strokeWidth="2.8"
                     strokeDasharray="100, 100"
                     strokeDashoffset={100 - progressRatio * 100}
                     strokeLinecap="round"
                   />
                 </svg>
-                <div className="absolute font-mono text-xs font-medium text-zinc-200">
+                <div className="absolute font-mono text-xs font-bold text-white">
                   {Math.ceil(timeRemaining)}
                 </div>
               </div>
-              <span className="text-xs font-mono text-zinc-500 hidden sm:inline">
+              <span className="text-xs font-mono text-zinc-400 hidden sm:inline">
                 {timeRemaining}s
               </span>
-            </>
+            </div>
           ) : (
             <div className="flex items-center gap-2">
-              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-zinc-400 bg-zinc-900 px-2.5 py-1.5 rounded-lg border border-zinc-800">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-zinc-500" />
+              <div className="hidden sm:flex items-center gap-1.5 text-xs font-mono text-indigo-300 bg-indigo-500/10 px-3 py-2 rounded-xl border border-indigo-500/20">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-400" />
                 <span>Auto in {currentTransitionSec}s</span>
               </div>
               <button
@@ -187,8 +320,8 @@ export default function QuizArena({
                   sounds.playPop();
                   if (onNextQuestion) onNextQuestion();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs transition shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
-                title={isLastQuestion ? "Show Final Leaderboard" : "Advance to Next Question"}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl studio-btn-primary text-xs font-semibold transition cursor-pointer"
+                title={isLastQuestion ? "Show Final Leaderboard" : "Advance to Next Question (Space)"}
               >
                 <span>{isLastQuestion ? 'Results' : 'Next'}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -199,11 +332,60 @@ export default function QuizArena({
 
       </div>
 
-      {/* Transition Progress Bar (Fixed reserved line above grid, zero height impact on question card) */}
-      <div className="w-full h-1 bg-zinc-900 rounded-full mb-4 overflow-hidden">
+      {/* Host Moderation Controls Bar (Section 4.1) */}
+      {isHost && (
+        <div className="mb-4 px-4 py-2.5 rounded-xl bg-amber-500/[0.06] border border-amber-500/25 flex items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-300 font-mono">
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            <span>Host Controls:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {!isRevealPhase && (
+              isTimerPaused ? (
+                <button
+                  onClick={() => {
+                    sounds.playPop();
+                    onResumeTimer?.();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-medium flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Play className="w-3.5 h-3.5" />
+                  <span>Resume Timer</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    sounds.playPop();
+                    onPauseTimer?.();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 font-medium flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <Pause className="w-3.5 h-3.5" />
+                  <span>Pause Timer</span>
+                </button>
+              )
+            )}
+
+            <button
+              onClick={() => {
+                sounds.playPop();
+                onSkipQuestion?.();
+              }}
+              className="px-3 py-1.5 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 border border-white/[0.08] font-medium flex items-center gap-1.5 transition cursor-pointer"
+            >
+              <FastForward className="w-3.5 h-3.5" />
+              <span>Skip Question</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Transition Progress Bar */}
+      <div className="w-full h-1 bg-white/[0.05] rounded-full mb-5 overflow-hidden">
         {isRevealPhase ? (
           <div 
-            className="h-full bg-zinc-400 rounded-full transition-all duration-1000 ease-linear"
+            className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-1000 ease-linear shadow-sm shadow-indigo-500/50"
             style={{ width: `${transitionProgress}%` }}
           />
         ) : (
@@ -216,78 +398,74 @@ export default function QuizArena({
         {/* Main Quiz Area */}
         <div className="lg:col-span-3 space-y-4">
           
-          {/* Question Card (Static height & content - never shifts between active & reveal) */}
+          {/* Question Studio Card */}
           <div 
             key={questionData.id}
-            className="minimal-panel rounded-2xl p-5 sm:p-7 relative"
+            className="studio-panel rounded-2xl p-6 sm:p-8 relative overflow-hidden"
           >
-            <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 mb-2">
-              Question {questionData.questionIndex + 1} of {questionData.totalQuestions}
+            <div className="text-[11px] font-mono uppercase tracking-wider text-indigo-400 mb-2 flex items-center gap-2">
+              <span>Telemetry Node</span>
+              <span>•</span>
+              <span>Round {questionData.questionIndex + 1}</span>
             </div>
 
-            <h2 className="text-base sm:text-lg font-medium text-zinc-100 leading-relaxed">
+            <h2 className="text-lg sm:text-xl font-medium text-white leading-relaxed">
               {questionData.question}
             </h2>
           </div>
 
-          {/* 4 Option Buttons (Layout, padding, border-2 remain 100% static) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* 4 Option Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {questionData.options.map((optionText, idx) => {
               const isSelectedByUser = finalUserAnswer === idx;
               const isCorrectAnswer = isRevealPhase && correctIndex === idx;
               const isWrongSelection = isRevealPhase && isSelectedByUser && !answerRevealData?.isCorrect;
 
-              // 1. Conditional Highlighting Logic
-              // Stable base classes: border-2 to avoid layout shifts when color changes
-              let cardStyle = "bg-zinc-900/60 border-zinc-800 hover:border-zinc-700 hover:bg-zinc-850 text-zinc-300";
-              let labelStyle = "bg-zinc-850 border-zinc-800 text-zinc-400";
+              let cardStyle = "studio-card-interactive text-zinc-200";
+              let labelStyle = "bg-white/[0.06] border-white/[0.1] text-zinc-400";
 
               if (isRevealPhase) {
                 if (isCorrectAnswer) {
-                  // The Correct Answer: Simultaneously highlight actual correct option in green
-                  cardStyle = "bg-green-500 text-white border-green-700 font-medium shadow-sm";
-                  labelStyle = "bg-green-600 border-green-700 text-white font-bold";
+                  cardStyle = "bg-emerald-500/20 text-emerald-100 border-2 border-emerald-400 font-medium shadow-lg shadow-emerald-500/20";
+                  labelStyle = "bg-emerald-500 text-white border-emerald-400 font-bold";
                 } else if (isWrongSelection) {
-                  // User's Incorrect Selection: If user selected wrong answer, highlight specifically in red
-                  cardStyle = "bg-red-500 text-white border-red-700 font-medium shadow-sm";
-                  labelStyle = "bg-red-600 border-red-700 text-white font-bold";
+                  cardStyle = "bg-rose-500/20 text-rose-100 border-2 border-rose-400 font-medium shadow-lg shadow-rose-500/20";
+                  labelStyle = "bg-rose-500 text-white border-rose-400 font-bold";
                 } else {
-                  // Unselected/Neutral Options: Fade out in disabled state
-                  cardStyle = "opacity-50 cursor-not-allowed bg-zinc-900/40 border-zinc-850 text-zinc-400";
-                  labelStyle = "bg-zinc-900 border-zinc-850 text-zinc-500";
+                  cardStyle = "opacity-40 cursor-not-allowed bg-white/[0.02] border-white/[0.04] text-zinc-500";
+                  labelStyle = "bg-white/[0.03] border-white/[0.06] text-zinc-600";
                 }
               } else if (isSelectedByUser) {
-                // Optimistic UI during ACTIVE_QUESTION
-                cardStyle = "bg-zinc-800 border-zinc-500 text-zinc-100";
-                labelStyle = "bg-zinc-700 border-zinc-600 text-zinc-100";
+                cardStyle = "bg-indigo-600/25 border-2 border-indigo-400 text-white shadow-xl shadow-indigo-500/20 scale-[1.01]";
+                labelStyle = "bg-indigo-500 text-white border-indigo-400";
               }
 
               return (
                 <button
                   key={idx}
                   onClick={() => handleSelectOption(idx)}
-                  disabled={isRevealPhase || hasSubmitted || timeRemaining <= 0}
-                  className={`p-4 rounded-xl border-2 text-left flex items-start gap-3 transition-colors duration-150 relative ${
+                  disabled={isRevealPhase || hasSubmitted || timeRemaining <= 0 || isEliminated}
+                  className={`p-4 sm:p-5 rounded-2xl border text-left flex items-start gap-3.5 transition-all duration-150 relative cursor-pointer ${
                     isRevealPhase ? 'pointer-events-none' : ''
                   } disabled:cursor-not-allowed ${cardStyle}`}
                 >
                   {/* Fixed-size Option Letter badge */}
-                  <div className={`w-6 h-6 rounded-md font-mono text-[11px] flex items-center justify-center shrink-0 border transition-colors ${labelStyle}`}>
+                  <div className={`w-7 h-7 rounded-xl font-mono text-xs flex items-center justify-center shrink-0 border transition-colors shadow-inner ${labelStyle}`}>
                     {OPTION_LABELS[idx]}
                   </div>
 
-                  {/* Option Text (flex-1 ensures width remains completely static) */}
-                  <span className="text-xs sm:text-sm font-normal flex-1 pt-0.5 leading-snug">
+                  {/* Option Text */}
+                  <span className="text-xs sm:text-sm font-normal flex-1 pt-1 leading-snug">
                     {optionText}
                   </span>
 
-                  {/* Fixed-size slot for icon so option text never wraps or jumps */}
+                  {/* Icon slot */}
                   <div className="w-5 h-5 flex items-center justify-center shrink-0 self-center">
                     {isRevealPhase && isCorrectAnswer && (
-                      <Check className="w-4 h-4 text-white" />
+                      <Check className="w-5 h-5 text-emerald-400" />
                     )}
                     {isRevealPhase && isWrongSelection && (
-                      <X className="w-4 h-4 text-white" />
+                      <X className="w-5 h-5 text-rose-400" />
                     )}
                   </div>
                 </button>
@@ -297,55 +475,60 @@ export default function QuizArena({
 
           {/* Reveal Feedback & AI Explanation Banner */}
           {isRevealPhase && answerRevealData && (
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/90 animate-fade-in text-xs space-y-2">
+            <div className="p-5 rounded-2xl studio-panel border-white/[0.1] animate-fade-in text-xs space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2.5">
                   {answerRevealData.isCorrect ? (
-                    <div className="flex items-center gap-1.5 text-zinc-200 font-medium">
-                      <Check className="w-4 h-4 text-green-400" />
+                    <div className="flex items-center gap-2 text-emerald-300 font-semibold text-sm">
+                      <div className="p-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30">
+                        <Check className="w-4 h-4 text-emerald-400" />
+                      </div>
                       <span>Correct Answer</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
-                      <AlertCircle className="w-4 h-4 text-red-400" />
+                    <div className="flex items-center gap-2 text-rose-300 font-semibold text-sm">
+                      <div className="p-1 rounded-lg bg-rose-500/20 border border-rose-500/30">
+                        <AlertCircle className="w-4 h-4 text-rose-400" />
+                      </div>
                       <span>
-                        {answerRevealData.timedOut ? "Time Expired" : "Incorrect Answer"}
+                        {answerRevealData.timedOut ? "Time Limit Expired" : "Incorrect Answer"}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 font-mono text-zinc-300">
+                <div className="flex items-center gap-3 font-mono text-xs">
                   {answerRevealData.isCorrect ? (
-                    <span className="text-green-400 font-semibold">
+                    <span className="text-emerald-400 font-bold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
                       +{answerRevealData.pointsEarned} pts
                     </span>
                   ) : (
-                    <span className="text-zinc-500">+0 pts</span>
+                    <span className="text-zinc-500 px-2 py-0.5 rounded bg-white/[0.04]">+0 pts</span>
                   )}
-                  <span className="text-zinc-400 font-normal">
+                  <span className="text-zinc-300">
                     Total: {answerRevealData.totalScore}
                   </span>
                 </div>
               </div>
 
               {answerRevealData.explanation && (
-                <p className="text-zinc-400 leading-relaxed pt-2 border-t border-zinc-800 text-[11px]">
-                  <strong className="text-zinc-300">Explanation:</strong> {answerRevealData.explanation}
-                </p>
+                <div className="pt-3 border-t border-white/[0.08] text-[12px] text-zinc-300 leading-relaxed">
+                  <span className="font-semibold text-indigo-300">AI Context: </span>
+                  {answerRevealData.explanation}
+                </div>
               )}
             </div>
           )}
 
           {/* Action button to reveal next question */}
           {isRevealPhase && (
-            <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-900/70 backdrop-blur-sm flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in">
+            <div className="p-4 sm:p-5 rounded-2xl studio-card flex flex-col sm:flex-row items-center justify-between gap-4 animate-fade-in">
               <div className="text-xs text-zinc-400 flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>
                   {isLastQuestion
-                    ? 'Final round concluded. Ready for match results!'
-                    : `Round ${questionData.questionIndex + 1} of ${questionData.totalQuestions} complete. Auto-advancing in ${currentTransitionSec}s.`
+                    ? 'Final question completed. Match standings ready!'
+                    : `Round ${questionData.questionIndex + 1} finished. Advancing in ${currentTransitionSec}s (or press Space).`
                   }
                 </span>
               </div>
@@ -356,9 +539,9 @@ export default function QuizArena({
                   sounds.playPop();
                   if (onNextQuestion) onNextQuestion();
                 }}
-                className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-950 font-semibold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg active:scale-[0.98] cursor-pointer"
+                className="w-full sm:w-auto px-6 py-2.5 rounded-xl studio-btn-primary text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-2 shadow-xl cursor-pointer"
               >
-                <span>{isLastQuestion ? 'Reveal Final Leaderboard' : 'Reveal Next Question'}</span>
+                <span>{isLastQuestion ? 'View Match Podium' : 'Advance Next Question'}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -366,48 +549,77 @@ export default function QuizArena({
 
           {/* Submission status notice during ACTIVE_QUESTION */}
           {!isRevealPhase && hasSubmitted && (
-            <div className="p-3 rounded-lg bg-zinc-900/40 border border-zinc-800 text-center text-xs text-zinc-400 flex items-center justify-center gap-2">
-              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 animate-pulse" />
-              Answer submitted. Waiting for round timer...
+            <div className="p-3.5 rounded-xl studio-card text-center text-xs text-zinc-400 flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+              <span>Response recorded. Awaiting clock expiration or opponent submissions...</span>
             </div>
           )}
+
+          {/* Live Emoji Reaction Bar (Section 4.3) */}
+          <div className="p-3 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-mono text-zinc-400">
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Send Live Reaction:</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {EMOJI_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => handleEmojiClick(emoji)}
+                  className="px-2.5 py-1.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] hover:scale-110 active:scale-95 transition-all text-base cursor-pointer"
+                  title={`React with ${emoji}`}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
 
         </div>
 
         {/* Live Standings Sidebar */}
         <div className="lg:col-span-1">
-          <div className="minimal-panel rounded-2xl p-4 sticky top-20">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
-                <Award className="w-3.5 h-3.5 text-zinc-400" />
-                Standings
+          <div className="studio-panel rounded-2xl p-4 sticky top-20">
+            <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-white/[0.08]">
+              <h3 className="text-xs font-mono uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-indigo-400" />
+                Live Standings
               </h3>
-              <span className="text-[10px] text-zinc-500 font-mono">Live</span>
+              <span className="text-[10px] text-emerald-400 font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
+                Active
+              </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               {leaderboard && leaderboard.map((p, rank) => {
                 const isMe = p.socketId === currentSocketId;
                 return (
                   <div
                     key={p.socketId}
-                    className={`p-2 rounded-lg flex items-center justify-between text-xs transition ${
+                    className={`p-2.5 rounded-xl flex items-center justify-between text-xs transition ${
                       isMe 
-                        ? 'bg-zinc-800/80 border border-zinc-700 text-zinc-100' 
-                        : 'bg-zinc-900/40 border border-zinc-800/60 text-zinc-400'
+                        ? 'bg-indigo-600/20 border border-indigo-500/40 text-white shadow-sm' 
+                        : 'bg-white/[0.03] border border-white/[0.06] text-zinc-300'
                     }`}
                   >
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <span className="font-mono text-[10px] text-zinc-500 w-3">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <span className="font-mono text-[11px] font-bold text-zinc-500 w-3.5">
                         {rank + 1}
                       </span>
-                      <span className="text-sm shrink-0">{p.avatarSeed || '⚡'}</span>
+                      <span className="text-base shrink-0">{p.avatarSeed || '⚡'}</span>
                       <span className="truncate text-xs font-medium">
                         {p.username}
                       </span>
+                      {p.isEliminated && (
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                          DEAD
+                        </span>
+                      )}
                     </div>
 
-                    <div className="text-right shrink-0 font-mono text-zinc-300 text-xs">
+                    <div className="text-right shrink-0 font-mono font-bold text-indigo-300 text-xs">
                       {p.score || 0}
                     </div>
                   </div>

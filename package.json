@@ -1,0 +1,15 @@
+{
+  "name": "ai-quiz-builder-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QuizVerse AI — Fullstack Monorepo Root Dev Runner",
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "start": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm start --prefix backend\" \"npm run preview --prefix frontend\"",
+    "build": "npm run build --prefix frontend",
+    "install:all": "npm install --prefix backend && npm install --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

@@ -11,13 +11,19 @@ export default function CountdownOverlay({ count }) {
   }, [count]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/90 backdrop-blur-sm animate-fade-in pointer-events-none">
-      <div className="flex flex-col items-center justify-center text-center">
-        <div className="text-7xl sm:text-8xl font-mono font-bold text-zinc-100 tracking-tight transition-transform duration-200">
-          {count > 0 ? count : 'START'}
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md animate-fade-in pointer-events-none">
+      <div className="relative flex flex-col items-center justify-center text-center">
+        {/* Glowing atmospheric halo */}
+        <div className="absolute w-64 h-64 bg-indigo-500/20 blur-[90px] rounded-full -z-10 animate-pulse" />
+
+        <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full studio-panel flex items-center justify-center border-2 border-indigo-400/60 shadow-2xl shadow-indigo-500/30">
+          <div className="text-6xl sm:text-7xl font-mono font-extrabold text-white tracking-tight drop-shadow-lg">
+            {count > 0 ? count : 'GO!'}
+          </div>
         </div>
-        <p className="mt-4 text-xs font-mono uppercase tracking-widest text-zinc-400">
-          Synchronizing Round...
+
+        <p className="mt-5 text-xs font-mono uppercase tracking-widest text-indigo-300 font-semibold px-4 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shadow-inner">
+          {count > 0 ? 'Synchronizing Round...' : 'Arena Live!'}
         </p>
       </div>
     </div>

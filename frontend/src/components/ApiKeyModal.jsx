@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Key, Check, ExternalLink } from 'lucide-react';
+import { X, Key, Check, ExternalLink, ShieldCheck } from 'lucide-react';
 import { sounds } from '../utils/soundEffects';
 
 export default function ApiKeyModal({ isOpen, onClose, currentKey, onSaveKey }) {
@@ -26,46 +26,46 @@ export default function ApiKeyModal({ isOpen, onClose, currentKey, onSaveKey }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-zinc-950/85 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-sm minimal-panel rounded-2xl p-5 relative border border-zinc-800 shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-sm studio-panel rounded-2xl p-6 relative border border-white/[0.12] shadow-2xl">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition cursor-pointer"
+          className="absolute top-4 right-4 p-1.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/[0.08] transition cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
 
-        <div className="flex items-center gap-2.5 mb-3">
-          <div className="w-7 h-7 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-400">
-            <Key className="w-3.5 h-3.5" />
+        <div className="flex items-center gap-3 mb-3.5">
+          <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+            <Key className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-zinc-100">Gemini API Key</h3>
-            <p className="text-[11px] text-zinc-500">Optional custom key</p>
+            <h3 className="text-sm font-semibold text-white">Gemini API Key</h3>
+            <p className="text-[11px] text-zinc-400 font-mono">Personal AI Studio Credentials</p>
           </div>
         </div>
 
-        <p className="text-xs text-zinc-400 leading-relaxed mb-4">
-          By default, the backend handles question generation with its key or built-in model. You can optionally supply your own Gemini key here.
+        <p className="text-xs text-zinc-300 leading-relaxed mb-4">
+          By default, the backend handles question generation. You can supply your own Google Gemini API key to avoid shared quotas.
         </p>
 
-        <form onSubmit={handleSave} className="space-y-3.5">
+        <form onSubmit={handleSave} className="space-y-4">
           <div>
             <input
               type="password"
               value={keyInput}
               onChange={(e) => setKeyInput(e.target.value)}
               placeholder="AIzaSy..."
-              className="w-full px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-800 focus:border-zinc-500 focus:outline-none text-xs text-zinc-100 placeholder-zinc-600 font-mono transition"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[#0e1019]/90 border border-white/[0.1] focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 focus:outline-none text-xs text-white placeholder-zinc-500 font-mono transition shadow-inner"
             />
           </div>
 
-          <div className="flex items-center justify-between text-[11px] text-zinc-500">
+          <div className="flex items-center justify-between text-[11px] text-zinc-400">
             <a
               href="https://aistudio.google.com/app/apikey"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1 text-zinc-400 hover:text-zinc-200 underline"
+              className="inline-flex items-center gap-1 text-indigo-400 hover:text-indigo-300 transition underline underline-offset-2"
             >
               Get free Gemini key <ExternalLink className="w-2.5 h-2.5" />
             </a>
@@ -73,31 +73,31 @@ export default function ApiKeyModal({ isOpen, onClose, currentKey, onSaveKey }) 
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-zinc-400 hover:text-zinc-200 cursor-pointer"
+                className="text-zinc-400 hover:text-rose-400 transition cursor-pointer"
               >
-                Clear
+                Clear Key
               </button>
             )}
           </div>
 
-          <div className="pt-1 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2.5">
             <button
               type="button"
               onClick={onClose}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-zinc-400 hover:text-zinc-200 transition cursor-pointer"
+              className="px-3.5 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white transition cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-950 text-xs font-medium transition cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2 rounded-xl studio-btn-primary text-xs font-semibold transition cursor-pointer flex items-center gap-1.5 shadow-lg"
             >
               {savedSuccess ? (
                 <>
                   <Check className="w-3.5 h-3.5" /> Saved
                 </>
               ) : (
-                'Save'
+                'Save Key'
               )}
             </button>
           </div>

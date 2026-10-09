@@ -8,6 +8,7 @@ const playerSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   avatarSeed: { type: String, default: '⚡' },
   isDisconnected: { type: Boolean, default: false },
+  isEliminated: { type: Boolean, default: false },
   lastActive: { type: Date, default: Date.now }
 }, { _id: false });
 
@@ -29,10 +30,12 @@ const roomSchema = new mongoose.Schema({
     enum: ['LOBBY', 'GENERATING', 'IN_PROGRESS', 'FINISHED'], 
     default: 'LOBBY' 
   },
+  isSolo: { type: Boolean, default: false },
   settings: {
-    questionCount: { type: Number, default: 5, min: 2, max: 15 },
+    questionCount: { type: Number, default: 5, min: 2, max: 20 },
     timePerQuestion: { type: Number, default: 15, min: 5, max: 60 },
-    difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Medium' }
+    difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard', 'Standard'], default: 'Medium' },
+    gameMode: { type: String, enum: ['STANDARD', 'BATTLE_ROYALE', 'SOLO_PRACTICE'], default: 'STANDARD' }
   },
   players: [playerSchema],
   createdAt: { type: Date, default: Date.now, expires: 86400 } // Auto-expire after 24 hrs

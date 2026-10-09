@@ -9,6 +9,7 @@ import RoundRecap from './components/RoundRecap';
 import FinalLeaderboard from './components/FinalLeaderboard';
 import ApiKeyModal from './components/ApiKeyModal';
 import CreatorPortal from './components/CreatorPortal';
+import QuizLibraryModal from './components/QuizLibraryModal';
 import { sounds } from './utils/soundEffects';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
   // App View State: 'LOBBY_SELECT' | 'LOBBY_WAITING' | 'QUIZ_ROUND' | 'ROUND_RECAP' | 'GAME_OVER'
   const [viewState, setViewState] = useState('LOBBY_SELECT');
   const [isCreatorPortalOpen, setIsCreatorPortalOpen] = useState(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState(false);
 
   // Game Room & Question Data
   const [roomData, setRoomData] = useState(null);
@@ -34,6 +36,10 @@ export default function App() {
   const [roundStatus, setRoundStatus] = useState('WAITING_FOR_PLAYERS');
   const [answerRevealData, setAnswerRevealData] = useState(null);
   const [transitionSecondsRemaining, setTransitionSecondsRemaining] = useState(null);
+
+  // Moderation & Reaction State
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const [incomingReaction, setIncomingReaction] = useState(null);
 
   // Global Alerts / Error Toast
   const [notification, setNotification] = useState(null);
@@ -74,6 +80,14 @@ export default function App() {
       setViewState('LOBBY_WAITING');
       setRoundStatus('WAITING_FOR_PLAYERS');
       setIsGenerating(false);
+
+      // In Solo Practice mode, automatically begin quiz generation and start
+      if (room.isSolo) {
+        showNotification('Solo Practice Room initialized! Starting countdown...');
+        setTimeout(() => {
+          socket.emit('start_game', { roomCode });
+        }, 300);
+      }
     }
 
     function onRoomJoined({ roomCode, room }) {
@@ -135,6 +149,7 @@ export default function App() {
 
     function onRoundQuestion(data) {
       setRoundStatus('ACTIVE_QUESTION');
+      setIsTimerPaused(false);
       setAnswerRevealData(null);
       setTransitionSecondsRemaining(null);
       setRoundRecapData(null);
@@ -199,6 +214,7 @@ export default function App() {
       setTransitionSecondsRemaining(null);
       setRoundRecapData(null);
       setGameOverData(null);
+      setIsTimerPaused(false);
       setViewState('LOBBY_WAITING');
       setRoundStatus('WAITING_FOR_PLAYERS');
     }
@@ -206,6 +222,34 @@ export default function App() {
     function onError({ message }) {
       showNotification(message, true);
       setIsGenerating(false);
+    }
+
+    // Moderation & Reaction Socket Events
+    function onRoundTimerPaused() {
+      setIsTimerPaused(true);
+      showNotification('⏸️ Round clock paused by host.');
+    }
+
+    function onRoundTimerResumed() {
+      setIsTimerPaused(false);
+      showNotification('▶️ Round clock resumed.');
+    }
+
+    function onPlayerReaction(reaction) {
+      setIncomingReaction(reaction);
+    }
+
+    function onPlayerKicked({ socketId, reason }) {
+      if (socketId === socket.id) {
+        showNotification(reason || 'You were removed from the room by the host.', true);
+        handleLeaveGame();
+      } else {
+        showNotification('A player was removed by the host.');
+      }
+    }
+
+    function onPlayerEliminated({ playerName }) {
+      showNotification(`☠️ ${playerName} eliminated in Battle Royale!`, true);
     }
 
     socket.on('connect', onConnect);
@@ -232,6 +276,12 @@ export default function App() {
     socket.on('game_reset_to_lobby', onGameReset);
     socket.on('error_message', onError);
 
+    socket.on('round_timer_paused', onRoundTimerPaused);
+    socket.on('round_timer_resumed', onRoundTimerResumed);
+    socket.on('player_reaction', onPlayerReaction);
+    socket.on('player_kicked', onPlayerKicked);
+    socket.on('player_eliminated', onPlayerEliminated);
+
     return () => {
       socket.off('connect', onConnect);
       socket.off('disconnect', onDisconnect);
@@ -256,6 +306,12 @@ export default function App() {
       socket.off('game_over', onGameOver);
       socket.off('game_reset_to_lobby', onGameReset);
       socket.off('error_message', onError);
+
+      socket.off('round_timer_paused', onRoundTimerPaused);
+      socket.off('round_timer_resumed', onRoundTimerResumed);
+      socket.off('player_reaction', onPlayerReaction);
+      socket.off('player_kicked', onPlayerKicked);
+      socket.off('player_eliminated', onPlayerEliminated);
     };
   }, []);
 
@@ -285,7 +341,6 @@ export default function App() {
     sessionStorage.setItem('quiz_room_code', roomCode);
     sessionStorage.setItem('quiz_username', hostName || 'Host');
 
-    // Claim host socket connection with verified/edited questions
     socket.emit('claim_preloaded_host', {
       roomCode,
       username: hostName,
@@ -301,9 +356,26 @@ export default function App() {
     showNotification(`Curriculum quiz ready with ${questions.length} questions! Awaiting players in lobby.`);
   };
 
+  const handleLibraryQuizLaunch = ({ roomCode, room, questions }) => {
+    sessionStorage.setItem('quiz_room_code', roomCode);
+    sessionStorage.setItem('quiz_username', 'Library Host');
+
+    socket.emit('claim_preloaded_host', {
+      roomCode,
+      username: 'Library Host',
+      avatarSeed: '📚',
+      questions
+    });
+
+    setRoomData(room);
+    setLiveLeaderboard(room?.players || []);
+    setViewState('LOBBY_WAITING');
+    setRoundStatus('WAITING_FOR_PLAYERS');
+    showNotification(`Library quiz loaded into Room ${roomCode}! Share code with competitors.`);
+  };
+
   const handleStartQuiz = () => {
     if (!roomData) return;
-    // Emits start_game (with server handling both start_game and start_quiz)
     socket.emit('start_game', { roomCode: roomData.roomCode });
   };
 
@@ -341,10 +413,49 @@ export default function App() {
     }
   };
 
+  // Host Moderation Handlers
+  const handleKickPlayer = (targetSocketId) => {
+    if (!roomData) return;
+    socket.emit('kick_player', {
+      roomCode: roomData.roomCode,
+      targetSocketId
+    });
+  };
+
+  const handlePauseTimer = () => {
+    if (!roomData) return;
+    socket.emit('pause_timer', { roomCode: roomData.roomCode });
+  };
+
+  const handleResumeTimer = () => {
+    if (!roomData) return;
+    socket.emit('resume_timer', { roomCode: roomData.roomCode });
+  };
+
+  const handleSkipQuestion = () => {
+    if (!roomData) return;
+    socket.emit('skip_question', { roomCode: roomData.roomCode });
+  };
+
+  const handleSendReaction = (emoji) => {
+    if (!roomData) return;
+    socket.emit('send_reaction', {
+      roomCode: roomData.roomCode,
+      emoji
+    });
+  };
+
+  const isHost = roomData?.hostSocketId === currentSocketId;
+  const myPlayer = liveLeaderboard?.find(p => p.socketId === currentSocketId);
+
   return (
-    <div className="min-h-screen flex flex-col bg-zinc-950 text-zinc-100 relative selection:bg-zinc-800 selection:text-zinc-100">
+    <div className="min-h-screen flex flex-col studio-canvas text-zinc-100 relative selection:bg-indigo-500 selection:text-white">
+      {/* Studio Ambient Atmospheric Light Glows */}
+      <div className="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[900px] h-[380px] bg-indigo-500/[0.08] blur-[140px] rounded-full -z-10" />
+      <div className="pointer-events-none fixed top-1/3 -right-24 w-[500px] h-[350px] bg-violet-600/[0.05] blur-[120px] rounded-full -z-10" />
+      <div className="pointer-events-none fixed bottom-10 -left-20 w-[500px] h-[350px] bg-cyan-600/[0.04] blur-[120px] rounded-full -z-10" />
       
-      {/* Global Navbar */}
+      {/* Global Studio Navbar */}
       <Navbar
         isConnected={isConnected}
         onOpenApiKeyModal={() => setIsApiKeyModalOpen(true)}
@@ -352,21 +463,23 @@ export default function App() {
         isCreatorPortalOpen={isCreatorPortalOpen}
         onToggleCreatorPortal={() => setIsCreatorPortalOpen(!isCreatorPortalOpen)}
         canToggleCreator={viewState === 'LOBBY_SELECT'}
+        onOpenLibrary={() => setIsLibraryOpen(true)}
       />
 
-      {/* Subtle notification banner */}
+      {/* Modern Studio Notification Banner */}
       {notification && (
-        <div className={`fixed top-18 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl text-xs sm:text-sm font-medium shadow-lg backdrop-blur-md transition-all ${
+        <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-full text-xs font-medium shadow-2xl backdrop-blur-xl border transition-all animate-fade-in flex items-center gap-2 ${
           notification.isError
-            ? 'bg-zinc-900 border border-zinc-700 text-zinc-200'
-            : 'bg-zinc-900 border border-zinc-700 text-zinc-300'
+            ? 'bg-red-950/80 border-red-500/40 text-red-200 shadow-red-950/50'
+            : 'bg-zinc-900/90 border-white/10 text-zinc-200 shadow-black/80'
         }`}>
-          {notification.message}
+          <span className={`w-1.5 h-1.5 rounded-full ${notification.isError ? 'bg-red-400' : 'bg-indigo-400'} animate-pulse`} />
+          <span>{notification.message}</span>
         </div>
       )}
 
       {/* Main Dynamic View Area */}
-      <main className="flex-1 flex flex-col justify-center">
+      <main className="flex-1 flex flex-col justify-center relative z-10 py-6 sm:py-8">
         {viewState === 'LOBBY_SELECT' && (
           isCreatorPortalOpen ? (
             <CreatorPortal
@@ -381,6 +494,7 @@ export default function App() {
               onJoinRoom={handleJoinRoom}
               isConnecting={!isConnected}
               onOpenCreatorPortal={() => setIsCreatorPortalOpen(true)}
+              onOpenLibrary={() => setIsLibraryOpen(true)}
             />
           )
         )}
@@ -391,6 +505,7 @@ export default function App() {
             currentSocketId={currentSocketId}
             onStartQuiz={handleStartQuiz}
             onToggleReady={handleToggleReady}
+            onKickPlayer={handleKickPlayer}
             isGenerating={isGenerating}
           />
         )}
@@ -406,7 +521,14 @@ export default function App() {
             leaderboard={liveLeaderboard}
             currentSocketId={currentSocketId}
             serverAuthoritativeTime={serverAuthoritativeTime}
-            isHost={roomData?.hostSocketId === currentSocketId}
+            isHost={isHost}
+            isTimerPaused={isTimerPaused}
+            onPauseTimer={handlePauseTimer}
+            onResumeTimer={handleResumeTimer}
+            onSkipQuestion={handleSkipQuestion}
+            onSendReaction={handleSendReaction}
+            incomingReaction={incomingReaction}
+            isEliminated={myPlayer?.isEliminated || false}
             onNextQuestion={handleNextQuestion}
           />
         )}
@@ -424,7 +546,7 @@ export default function App() {
           <FinalLeaderboard
             gameOverData={gameOverData}
             currentSocketId={currentSocketId}
-            isHost={roomData?.hostSocketId === currentSocketId}
+            isHost={isHost}
             onPlayAgain={handlePlayAgain}
             onLeaveGame={handleLeaveGame}
           />
@@ -444,9 +566,23 @@ export default function App() {
         onSaveKey={handleSaveApiKey}
       />
 
-      {/* Minimal Footer */}
-      <footer className="w-full py-4 text-center text-xs text-zinc-500 border-t border-zinc-900">
-        QuizVerse • Real-Time AI Multiplayer Quiz Arena
+      {/* Quiz Library & Question Bank Modal */}
+      <QuizLibraryModal
+        isOpen={isLibraryOpen}
+        onClose={() => setIsLibraryOpen(false)}
+        onLaunchQuiz={handleLibraryQuizLaunch}
+      />
+
+      {/* Sleek Studio Footer */}
+      <footer className="w-full py-4 px-6 flex items-center justify-between text-[11px] text-zinc-500 border-t border-white/[0.06] bg-[#08090d]/60 backdrop-blur-md">
+        <div className="flex items-center gap-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-indigo-500/70" />
+          <span className="font-medium text-zinc-400">QuizVerse AI Studio</span>
+          <span className="hidden sm:inline text-zinc-600">• Real-Time Multiplayer Engine</span>
+        </div>
+        <div className="flex items-center gap-4 text-zinc-400">
+          <span className="font-mono text-[10px] text-zinc-500">v2.4 Linear Edition</span>
+        </div>
       </footer>
 
     </div>

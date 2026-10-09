@@ -72,6 +72,37 @@ export async function generatePersonalizedQuizzes(topic, playerCount, options = 
   return playerQuizzes;
 }
 
+export async function extractTextFromScannedPdfBufferWithAI(buffer, customApiKey = null) {
+  const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey.trim() === '') return '';
+
+  const genAI = new GoogleGenerativeAI(apiKey.trim());
+  const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+
+  for (const modelName of modelsToTry) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent([
+        {
+          inlineData: {
+            data: buffer.toString('base64'),
+            mimeType: 'application/pdf'
+          }
+        },
+        'Transcribe all legible text from this scanned document. Organize the extracted text cleanly by chapters, headings, and sections. Preserve educational facts and figures accurately.'
+      ]);
+      const text = result.response.text();
+      if (text && text.trim().length >= 30) {
+        console.log(`[AI Multimodal OCR] Successfully extracted ${text.length} characters using ${modelName}`);
+        return text.trim();
+      }
+    } catch (err) {
+      console.warn(`[AI Multimodal OCR Warning] ${modelName} failed: ${err.message}`);
+    }
+  }
+  return '';
+}
+
 /**
  * Generates a single player's tailored quiz questions with a specific sub-focus
  */
@@ -81,7 +112,8 @@ export async function generateSinglePlayerQuiz({
   difficulty = 'Medium',
   playerIndex = 0,
   playerSeed = 'player-1',
-  customApiKey = null
+  customApiKey = null,
+  modelName = 'gemini-2.0-flash'
 }) {
   const apiKey = customApiKey || process.env.GEMINI_API_KEY;
   const count = Math.min(Math.max(Number(questionCount) || 5, 2), 15);
@@ -89,15 +121,18 @@ export async function generateSinglePlayerQuiz({
   const uniqueSubFocus = subFocusTemplate(topic);
 
   if (apiKey && apiKey.trim() !== '') {
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.85,
-        }
-      });
+    const modelsToTry = [modelName, 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
+
+    for (const mName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: mName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.85,
+          }
+        });
 
       const prompt = `You are an expert trivia quiz designer creating balanced, engaging multiple choice questions for a multiplayer game.
 Topic: "${topic}"
@@ -154,9 +189,10 @@ Return ONLY a valid JSON object matching this schema:
         }
       }
     } catch (err) {
-      console.warn(`[AI Warning] Gemini LLM generation error (${err.message}). Using dynamic fallback generator.`);
+      console.warn(`[AI Warning] Gemini LLM (${mName}) error (${err.message}). Trying fallback model.`);
     }
   }
+}
 
   // Dynamic resilient fallback generator tailored to the sub-focus and topic
   return generateDynamicFallbackQuestions(topic, count, playerIndex, uniqueSubFocus, difficulty);
@@ -224,16 +260,19 @@ export async function generateQuizFromPDFText({
   const clippedText = (pdfText || '').slice(0, 32000);
 
   if (apiKey && apiKey.trim() !== '') {
-    try {
-      const genAI = new GoogleGenerativeAI(apiKey.trim());
-      const model = genAI.getGenerativeModel({
-        model: 'gemini-1.5-flash',
-        generationConfig: {
-          responseMimeType: 'application/json',
-          temperature: 0.75,
-        },
-        systemInstruction: "You are an expert educational assessor. I will provide you with the text of a book chapter and a strict configuration for generating a multiple-choice quiz.\n\nYou MUST generate exactly the number of questions requested for each specific topic. Do not pull outside knowledge; base all answers solely on the provided text. Output strictly in the defined JSON format."
-      });
+    const modelsToTry = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+    const genAI = new GoogleGenerativeAI(apiKey.trim());
+
+    for (const mName of modelsToTry) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: mName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            temperature: 0.75,
+          },
+          systemInstruction: "You are an expert educational assessor. I will provide you with the text of a book chapter and a strict configuration for generating a multiple-choice quiz.\n\nYou MUST generate exactly the number of questions requested for each specific topic. Do not pull outside knowledge; base all answers solely on the provided text. Output strictly in the defined JSON format."
+        });
 
       const userPrompt = `Source Material:
 ${clippedText}
@@ -299,9 +338,10 @@ Return ONLY a valid JSON object matching this schema:
         }
       }
     } catch (err) {
-      console.warn(`[AI PDF Error] Gemini call failed for Player ${playerIndex + 1}: ${err.message}. Generating dynamic PDF fallback.`);
+      console.warn(`[AI PDF Error] Gemini call (${mName}) failed for Player ${playerIndex + 1}: ${err.message}. Trying next model.`);
     }
   }
+}
 
   // Dynamic fallback generator from the PDF text sentences with player-specific rotation
   return generatePDFDynamicFallback(clippedText, count, topicDistribution, difficulty, playerIndex);
